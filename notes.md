@@ -31,6 +31,17 @@
 - If undefined = new message
 - If present = reply, forward, or draft of existing message
 
+#### Identities API
+- **Purpose**: Access user's configured email identities
+- **Key method**: `identities.list()` - get all identities or for specific account
+- **MailIdentity properties**:
+  - `email` - the email address for this identity
+  - `name` - display name
+  - `accountId` - parent account
+- **Permissions needed**: `accountsRead`
+- **Use case**: Extract all configured identity email addresses to build pattern matching
+- **Reference**: https://webextension-api.thunderbird.net/en/mv3/identities.html
+
 ### 3. Plus-Addressing Pattern
 - Format: `user+alias@posteo.de`
 - Main address: `user@posteo.de`
@@ -93,7 +104,26 @@ my-extension/
 
 ### Still Open:
 - Should we use `onBeforeSend` or is there an earlier event to set From address?
-- How to handle Reply All - should we still use the alias?
-- Should this also work for Forwards?
-- Do we need user configuration or hardcode posteo.de pattern?
-- What if multiple To/CC addresses match the pattern?
+
+### User Decisions Made:
+- ✅ Work with any domain that has + pattern (not just posteo.de)
+- ✅ Support Reply, Reply All, AND Forward
+- ✅ Use Thunderbird's configured identities to determine valid patterns
+- ✅ Multiple matches: User wants configurable pattern OR extract from identities
+
+## Proposed Smart Solution
+
+**Approach**: Extract base addresses from all configured identities, then auto-detect aliases
+
+1. On extension load, get all identities via `identities.list()`
+2. Extract email addresses from each identity
+3. For each base identity email (e.g., `user@posteo.de`):
+   - When replying/forwarding, check if original recipient matches `user+*@posteo.de`
+   - If match found, use that aliased address as From
+4. This works automatically with user's existing identity configuration!
+
+**Benefits**:
+- No manual configuration needed
+- Works with multiple accounts
+- Respects user's existing Thunderbird setup
+- Automatically supports any domain the user has configured

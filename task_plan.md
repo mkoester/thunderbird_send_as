@@ -9,12 +9,12 @@ Build a Thunderbird extension that automatically sets the "From" address to matc
   - ✅ Research compose window manipulation
   - ✅ Found existing similar extensions for reference
   - ✅ Documented API capabilities in notes.md
-- [ ] Phase 2: Design the solution
-  - Determine how to detect reply actions
-  - Figure out how to extract alias from original recipient
-  - Plan how to set the From address
-  - Decide on user configuration needs
-  - Answer remaining open questions
+- [x] Phase 2: Design the solution
+  - ✅ Researched identities API for pattern extraction
+  - ✅ Designed smart solution using configured identities
+  - ✅ Created DESIGN.md with full technical specification
+  - ✅ Answered user questions about scope and behavior
+  - ✅ Decided on algorithm and architecture
 - [ ] Phase 3: Implement core functionality
   - Create manifest.json
   - Implement background.js with event listeners
@@ -48,21 +48,28 @@ Build a Thunderbird extension that automatically sets the "From" address to matc
 ## Technical Requirements
 - Thunderbird version: 115+ (modern WebExtension API, Manifest V3)
 - Required permissions:
+  - `accountsRead` - to access configured identities
   - `messagesRead` - to read original message recipients
   - `compose` - to modify compose details
 - Key APIs:
+  - `identities` API - to get user's configured email addresses
   - `compose` API - for accessing/modifying compose window
   - `messages` API - for reading original message details
 - File structure:
   - manifest.json
   - background.js
+  - DESIGN.md (technical specification)
 
 ## Decisions Made
-- Target: Posteo.de plus-addressing pattern (user+alias@posteo.de)
-- Trigger: Reply actions (Reply All TBD in Phase 2)
-- User level: Beginner-friendly development approach
-- Manifest version: V3 (modern Thunderbird standard)
-- Implementation: Use WebExtension APIs (not legacy WindowListener)
+- **Scope**: Any domain with + pattern (not just posteo.de)
+- **Triggers**: Reply, Reply All, AND Forward
+- **Pattern detection**: Extract from configured Thunderbird identities
+- **Multiple matches**: Use first match found
+- **User level**: Beginner-friendly development approach
+- **Manifest version**: V3 (modern Thunderbird standard)
+- **Implementation**: Use WebExtension APIs (not legacy WindowListener)
+- **Event**: Use `compose.onBeforeSend` for MVP
+- **Smart approach**: Auto-detect base emails from identities, match aliases automatically
 
 ## Reference Extensions Found
 - Custom Sender Address and Reply (Cusedar) - active, similar functionality
@@ -72,4 +79,4 @@ Build a Thunderbird extension that automatically sets the "From" address to matc
 (None yet)
 
 ## Status
-**Currently in Phase 2** - Ready to design the solution and answer remaining questions
+**Currently between Phase 2 and Phase 3** - Design complete, ready to implement when approved by user
