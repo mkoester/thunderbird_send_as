@@ -71,6 +71,50 @@ This Thunderbird extension helps manage email aliases (plus-addressing) with two
 
 ---
 
+## Feature 3: Auto-Create Identity for New Aliases (Optional)
+
+**What it does**: Automatically offers to save new aliases as Thunderbird identities when you use them for the first time.
+
+**Examples**:
+
+*Scenario 1: First time using an alias*
+- You reply to email sent to `user+shopping@posteo.de`
+- Feature 1 sets From to `user+shopping@posteo.de`
+- Feature 3 prompts: "Save `user+shopping@posteo.de` as a new identity?"
+- Suggested name: "John Doe (shopping)" (based on your base identity "John Doe")
+- You click "Create" → New identity is saved in Thunderbird
+
+*Scenario 2: Second time using the same alias*
+- You use `user+shopping@posteo.de` again
+- It's now a recognized identity in Thunderbird
+- Feature 3 doesn't prompt (already exists)
+
+*Scenario 3: Temporary alias*
+- You use `user+temp123@posteo.de` for a one-time registration
+- Feature 3 prompts to save as identity
+- You click "Don't ask for this alias" → Never prompted again for this specific alias
+
+**Default**: Enabled (opt-out via extension settings)
+
+**What gets copied to the new identity:**
+- Signature
+- HTML compose preference
+- Reply-to address
+- Other compose settings from your base identity
+
+**Why use this?**:
+- Build up your identity list automatically as you use aliases
+- After saving, Thunderbird natively recognizes the alias
+- Can select saved aliases from Thunderbird's identity dropdown
+- Keeps signature and settings consistent across aliases
+- Skip feature for temporary/one-time aliases
+
+**Settings available**:
+- Enable/disable globally
+- Manage list of aliases to never prompt for
+
+---
+
 ## Technical Details
 
 **Supported patterns**:
@@ -103,9 +147,25 @@ This Thunderbird extension helps manage email aliases (plus-addressing) with two
 
 ---
 
+## How Features Work Together
+
+All three features complement each other:
+
+1. **Feature 1** auto-detects aliases in replies/forwards
+2. **Feature 2** prompts for aliases when Feature 1 doesn't apply
+3. **Feature 3** offers to save frequently-used aliases as permanent identities
+
+**Example workflow**:
+1. First email to `user+shopping@posteo.de` arrives
+2. You click Reply → Feature 1 sets From to `user+shopping@posteo.de`
+3. Feature 3 prompts: "Save this as an identity?" → You click "Create"
+4. Now `user+shopping@posteo.de` is a permanent Thunderbird identity
+5. Next time you can select it directly from Thunderbird's identity dropdown
+
 ## Quick Start
 
 1. Install the extension
 2. Configure your base email address(es) in Thunderbird (you probably already have)
-3. Feature 1 works automatically - just reply to emails sent to your aliases
-4. Feature 2 is optional - enable in extension settings if you want alias suggestions
+3. **Feature 1** works automatically - just reply to emails sent to your aliases
+4. **Feature 2** (optional) - enable per account in settings if you want alias suggestions for all emails
+5. **Feature 3** (enabled by default) - prompts to save new aliases as identities

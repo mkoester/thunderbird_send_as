@@ -127,10 +127,11 @@ If alias found → Set From address
 ```json
 {
   "permissions": [
-    "accountsRead",  // Access identities
-    "messagesRead",  // Read original message recipients
-    "compose",       // Modify compose details
-    "storage"        // Store settings and preferences (for Feature 2)
+    "accountsRead",       // Access identities (read)
+    "accountsIdentities", // Create/modify identities (Feature 3)
+    "messagesRead",       // Read original message recipients
+    "compose",            // Modify compose details
+    "storage"             // Store settings and preferences
   ]
 }
 ```
@@ -162,7 +163,13 @@ thunderbird_send_as/
   "name": "Send As Alias",
   "version": "1.0",
   "description": "Automatically set From address to match email aliases in replies",
-  "permissions": ["accountsRead", "messagesRead", "compose", "storage"],
+  "permissions": [
+    "accountsRead",
+    "accountsIdentities",
+    "messagesRead",
+    "compose",
+    "storage"
+  ],
   "background": {
     "scripts": ["background.js"]
   },
@@ -269,11 +276,152 @@ async function handleCompose(tab, composeDetails) {
 - Quick keyboard access (Enter to accept, Esc to skip)
 - Remember previous aliases used with same recipient domain
 
+## Feature 3: Auto-Create Identity for New Aliases (Optional)
+
+**Purpose**: Automatically offer to create a Thunderbird identity when using a new alias for the first time
+
+**Behavior**:
+- When the extension sets a From address with an alias (via Feature 1 or Feature 2)
+- Check if this exact aliased address exists as a configured identity
+- If NOT found, prompt: "Would you like to save `user+shopping@posteo.de` as a new identity?"
+- Suggest identity name based on base identity (e.g., if base is "John Doe", suggest "John Doe (shopping)")
+- User can:
+  - Accept with suggested name
+  - Modify the identity name
+  - Skip (just use alias this time)
+  - "Don't ask again for this alias" (remember the decision)
+
+**Implementation**:
+```javascript
+async function maybeCreateIdentity(aliasEmail, baseEmail) {
+  // Check if this alias already exists as an identity
+  const allIdentities = await messenger.identities.list()
+  const exists = allIdentities.some(id => id.email === aliasEmail)
+
+  if (exists) {
+    return // Already an identity, nothing to do
+  }
+
+  // Check if we should skip this alias
+  if (settings.skipIdentityCreation?.includes(aliasEmail)) {
+    return
+  }
+
+  // Find the base identity to copy settings from
+  const baseIdentity = allIdentities.find(id => id.email === baseEmail)
+
+  if (!baseIdentity) {
+    return // Can't find base, skip
+  }
+
+  // Extract alias name from email
+  const aliasName = aliasEmail.split('+')[1].split('@')[0]
+  const suggestedName = `${baseIdentity.name} (${aliasName})`
+
+  // Prompt user
+  const result = await showCreateIdentityPrompt({
+    email: aliasEmail,
+    suggestedName: suggestedName,
+    baseName: baseIdentity.name
+  })
+
+  if (result.create) {
+    // Create new identity
+    await messenger.identities.create(baseIdentity.accountId, {
+      email: aliasEmail,
+      name: result.name || suggestedName,
+      replyTo: baseIdentity.replyTo,
+      composeHtml: baseIdentity.composeHtml,
+      signature: baseIdentity.signature
+      // Copy other relevant settings from base identity
+    })
+
+    console.log(`Created new identity: ${result.name} <${aliasEmail}>`)
+  } else if (result.dontAskAgain) {
+    // Remember not to ask for this alias
+    if (!settings.skipIdentityCreation) {
+      settings.skipIdentityCreation = []
+    }
+    settings.skipIdentityCreation.push(aliasEmail)
+    await browser.storage.local.set({ skipIdentityCreation: settings.skipIdentityCreation })
+  }
+}
+
+// Call after setting From address
+async function handleCompose(tab, composeDetails) {
+  const fromEmail = extractEmail(composeDetails.from)
+  let aliasWasSet = false
+  let usedAlias = null
+
+  // FEATURE 1: Auto-detect alias for replies/forwards
+  if (composeDetails.relatedMessageId) {
+    const originalMessage = await messenger.messages.get(composeDetails.relatedMessageId)
+    const recipients = [...(originalMessage.to || []), ...(originalMessage.cc || [])]
+    const matchedAlias = findMatchingAlias(recipients, baseEmails)
+
+    if (matchedAlias) {
+      await messenger.compose.setComposeDetails(tab.id, { from: matchedAlias })
+      aliasWasSet = true
+      usedAlias = matchedAlias
+    }
+  }
+
+  // FEATURE 2: Prompt for alias
+  if (!aliasWasSet && settings.promptForAlias[fromEmail]) {
+    if (!fromEmail.includes('+') && baseEmails.includes(fromEmail)) {
+      const toEmail = extractEmail(composeDetails.to[0])
+      if (!settings.dontAskAgain[fromEmail]?.includes(toEmail)) {
+        const result = await showAliasPrompt(fromEmail, toEmail)
+        if (result.useAlias) {
+          const alias = `${fromEmail.split('@')[0]}+${result.aliasName}@${fromEmail.split('@')[1]}`
+          await messenger.compose.setComposeDetails(tab.id, { from: alias })
+          usedAlias = alias
+        }
+      }
+    }
+  }
+
+  // FEATURE 3: Offer to create identity for new alias
+  if (usedAlias && settings.offerIdentityCreation) {
+    // Extract base email from the alias
+    const [localPart, domain] = usedAlias.split('@')
+    const baseLocal = localPart.split('+')[0]
+    const baseEmail = `${baseLocal}@${domain}`
+
+    await maybeCreateIdentity(usedAlias, baseEmail)
+  }
+}
+```
+
+**Settings Required**:
+- `offerIdentityCreation` (boolean, default: true) - Global on/off for this feature
+- `skipIdentityCreation` (array of email addresses) - Aliases user chose not to save
+  ```javascript
+  ["user+temp@posteo.de", "user+test@posteo.de"]
+  ```
+
+**Required Permission**:
+- `accountsIdentities` - To create new identities
+
+**Benefits**:
+- Gradually builds up your identity list automatically
+- Preserves settings from base identity (signature, HTML compose, etc.)
+- After first use, alias becomes a "real" identity in Thunderbird
+- User maintains full control (can skip or customize)
+
+**Use Cases**:
+- First time using `user+shopping@posteo.de` → Creates identity "John Doe (shopping)"
+- Next time Thunderbird natively recognizes it as an identity
+- Useful for frequently-used aliases that you want to send from directly
+- Can skip for one-time or temporary aliases
+
 ## Future Enhancements
 
 1. **Options UI**:
    - Toggle for Reply vs Reply All vs Forward
    - **Per-account toggle for alias suggestion on new emails** ✓
+   - **Toggle for identity auto-creation** ✓
+   - **Manage "skip identity creation" list** ✓
    - Custom pattern matching
    - Whitelist/blacklist domains
    - **Per-account "don't ask again" list management** ✓
@@ -316,6 +464,17 @@ async function handleCompose(tab, composeDetails) {
 7. **Cancel/skip**: User dismisses prompt without entering alias
 8. **Enter alias**: User enters alias and confirms
 9. **Multiple accounts**: Different settings per account
+
+### Feature 3: Auto-Create Identity for New Aliases
+1. **First use of alias**: Use new alias `user+shopping@posteo.de` (should prompt to create identity)
+2. **Already an identity**: Use alias that's already configured (no prompt)
+3. **Accept with suggested name**: Create identity with default "Name (alias)" format
+4. **Customize name**: User changes suggested name before creating
+5. **Skip**: User declines to create identity
+6. **Don't ask for this alias**: User marks alias to never prompt again
+7. **Feature disabled**: Global setting off (no prompts)
+8. **Settings copied**: Verify new identity inherits signature, HTML mode, etc. from base
+9. **Second use**: Use same alias again (should be recognized as identity, no prompt)
 
 ## References
 
