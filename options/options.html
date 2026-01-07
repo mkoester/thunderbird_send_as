@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Send As Alias - Settings</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 5px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+    }
+
+    .description {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+
+    .account-list {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+      background: #f9f9f9;
+    }
+
+    .account-item {
+      padding: 10px;
+      margin: 5px 0;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .account-email {
+      font-weight: 500;
+      flex-grow: 1;
+    }
+
+    .account-name {
+      color: #666;
+      font-size: 13px;
+      margin-left: 10px;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    input[type="checkbox"] {
+      margin-right: 8px;
+      cursor: pointer;
+    }
+
+    button {
+      padding: 8px 16px;
+      background: #0060df;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button:hover {
+      background: #0050c0;
+    }
+
+    button.secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    button.secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .list-item {
+      padding: 8px;
+      margin: 4px 0;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 3px;
+      display: flex;
+      justify-items: space-between;
+      align-items: center;
+    }
+
+    .list-item-text {
+      flex-grow: 1;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    .list-item button {
+      margin-left: 10px;
+      padding: 4px 12px;
+      font-size: 12px;
+    }
+
+    .empty-state {
+      color: #999;
+      font-style: italic;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .global-setting {
+      padding: 15px;
+      background: #f0f7ff;
+      border: 1px solid #b3d9ff;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+
+    .status-message {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .status-message.success {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+    }
+
+    .status-message.error {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <h1>Send As Alias - Settings</h1>
+  <p class="description">
+    Configure how the extension handles email aliases for plus-addressing (user+alias@domain.com).
+  </p>
+
+  <div id="statusMessage" class="status-message"></div>
+
+  <!-- Feature 1 -->
+  <div class="section">
+    <h2>Feature 1: Auto-Reply with Alias</h2>
+    <p class="description">
+      Automatically sets your From address to match aliases when replying to emails.
+      <strong>Always active</strong> - no configuration needed!
+    </p>
+    <div class="global-setting">
+      <strong>How it works:</strong> When you reply to an email sent to user+shopping@domain.com,
+      the extension automatically sets your From address to user+shopping@domain.com.
+    </div>
+  </div>
+
+  <!-- Feature 2 -->
+  <div class="section">
+    <h2>Feature 2: Alias Suggestion</h2>
+    <p class="description">
+      Prompt to use an alias when composing emails from your base address.
+      Enable per account below:
+    </p>
+
+    <div id="accountList" class="account-list">
+      <div class="empty-state">Loading accounts...</div>
+    </div>
+
+    <button id="manageExceptions" class="secondary" style="margin-top: 10px;">
+      Manage "Don't Ask Again" Lists
+    </button>
+  </div>
+
+  <!-- Feature 3 -->
+  <div class="section">
+    <h2>Feature 3: Auto-Create Identity</h2>
+    <p class="description">
+      Offer to save new aliases as Thunderbird identities when you use them.
+    </p>
+
+    <div class="global-setting">
+      <label>
+        <input type="checkbox" id="offerIdentityCreation">
+        <span>Prompt to create identity for new aliases</span>
+      </label>
+    </div>
+
+    <div id="skipList" style="margin-top: 15px;">
+      <strong>Aliases to never prompt for:</strong>
+      <div id="skipListItems" style="margin-top: 10px;">
+        <div class="empty-state">No aliases skipped</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

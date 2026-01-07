@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Send As Alias",
+  "version": "1.0.0",
+  "description": "Automatically set From address to match email aliases when replying, with optional alias suggestion and identity creation",
+  "author": "Mirko Köster",
+  "homepage_url": "https://github.com/mkoester/thunderbird_send_as",
+
+  "permissions": [
+    "accountsRead",
+    "accountsIdentities",
+    "messagesRead",
+    "compose",
+    "storage"
+  ],
+
+  "background": {
+    "scripts": ["background.js"]
+  },
+
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  }
+}
