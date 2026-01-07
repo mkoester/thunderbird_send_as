@@ -110,6 +110,15 @@ my-extension/
 - ✅ Support Reply, Reply All, AND Forward
 - ✅ Use Thunderbird's configured identities to determine valid patterns
 - ✅ Multiple matches: User wants configurable pattern OR extract from identities
+- ✅ **NEW FEATURE**: Alias suggestion for ALL emails
+  - Optional (disabled by default per account)
+  - **Configured per account** - enable/disable independently for each email address
+  - **Triggers on ANY composition**: new, reply, reply all, forward
+  - **Works with Feature 1**: Feature 1 auto-detects first (for replies/forwards), Feature 2 only prompts if no alias was found
+  - Prompt user when composing from base address
+  - Ask if they want to use an alias instead
+  - Include "don't ask again for this recipient" option
+  - "Don't ask again" list is also per-account
 
 ## Proposed Smart Solution
 

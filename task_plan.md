@@ -1,7 +1,9 @@
 # Task Plan: Thunderbird Send As Alias Extension
 
 ## Goal
-Build a Thunderbird extension that automatically sets the "From" address to match the alias used in the original recipient address when replying to emails sent to user+alias@posteo.de addresses.
+Build a Thunderbird extension with two features:
+1. **Auto-reply with alias**: Automatically set the "From" address to match the alias used in the original recipient address when replying to emails sent to user+alias@posteo.de addresses.
+2. **Alias suggestion (optional)**: When composing ANY email (new, reply, forward) from a base address, prompt user to consider using an alias instead (disabled by default per account).
 
 ## Phases
 - [x] Phase 1: Research and setup
@@ -16,16 +18,20 @@ Build a Thunderbird extension that automatically sets the "From" address to matc
   - ✅ Answered user questions about scope and behavior
   - ✅ Decided on algorithm and architecture
 - [ ] Phase 3: Implement core functionality
-  - Create manifest.json
-  - Implement background.js with event listeners
-  - Implement alias detection logic
-  - Implement From address modification
+  - Create manifest.json with all permissions
+  - Implement background.js:
+    - Feature 1: Auto-reply with alias (identity loading, event handlers, alias detection)
+    - Feature 2: Alias suggestion for new emails (optional, disabled by default)
+  - Create options UI (for enabling/disabling Feature 2)
+  - Create alias prompt dialog (for Feature 2)
+  - Implement settings storage
   - Handle edge cases
 - [ ] Phase 4: Testing and refinement
-  - Test with various email scenarios
+  - Test Feature 1 (auto-reply) scenarios
+  - Test Feature 2 (alias suggestion) scenarios
   - Add error handling
-  - Create user configuration options if needed
   - Write documentation (README.md)
+  - Create usage guide for both features
 
 ## Key Questions
 
@@ -51,29 +57,55 @@ Build a Thunderbird extension that automatically sets the "From" address to matc
   - `accountsRead` - to access configured identities
   - `messagesRead` - to read original message recipients
   - `compose` - to modify compose details
+  - `storage` - to store settings and preferences
 - Key APIs:
   - `identities` API - to get user's configured email addresses
   - `compose` API - for accessing/modifying compose window
   - `messages` API - for reading original message details
+  - `storage` API - for persisting settings
 - File structure:
   - manifest.json
   - background.js
+  - options/ (settings UI)
+  - popup/ (alias prompt dialog)
   - DESIGN.md (technical specification)
 
 ## Decisions Made
+
+### Feature 1: Auto-Reply with Alias
 - **Scope**: Any domain with + pattern (not just posteo.de)
 - **Triggers**: Reply, Reply All, AND Forward
 - **Pattern detection**: Extract BASE addresses only from configured Thunderbird identities
 - **Alias handling**: Use the full aliased address from original recipient (not from identity)
 - **Multiple matches**: Use first match found
-- **User level**: Beginner-friendly development approach
-- **Manifest version**: V3 (modern Thunderbird standard)
-- **Implementation**: Use WebExtension APIs (not legacy WindowListener)
-- **Event**: Use `compose.onBeforeSend` for MVP
 - **Smart approach**:
   - Extract base emails from identities (e.g., `user@posteo.de`)
   - Match against stripped aliases (e.g., `user+shop@posteo.de` → `user@posteo.de`)
   - Set From to FULL alias from original recipient (e.g., `user+shop@posteo.de`)
+
+### Feature 2: Alias Suggestion for All Emails
+- **Default state**: Disabled per account (opt-in)
+- **Configuration level**: Per-account (e.g., enable for work@company.com, disable for personal@gmail.com)
+- **Trigger**: ANY email composition (new, reply, reply all, forward) from base address
+- **Priority**: Feature 1 runs first; Feature 2 only prompts if Feature 1 didn't find/set an alias
+- **Behavior**: Prompt user with dialog to enter alias name
+- **Options**:
+  - Enter custom alias
+  - Continue with base address
+  - "Don't ask again for this recipient"
+- **Storage**:
+  - Per-account enabled/disabled state
+  - Per-account "don't ask again" lists
+- **Use cases**:
+  - New emails: Always prompts (if enabled)
+  - Replies to base address: Prompts (if enabled)
+  - Replies to aliased address: Feature 1 auto-sets, no prompt needed
+
+### General
+- **User level**: Beginner-friendly development approach
+- **Manifest version**: V3 (modern Thunderbird standard)
+- **Implementation**: Use WebExtension APIs (not legacy WindowListener)
+- **Event**: Use `compose.onBeforeSend` for both features
 
 ## Reference Extensions Found
 - Custom Sender Address and Reply (Cusedar) - active, similar functionality

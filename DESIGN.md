@@ -129,7 +129,8 @@ If alias found → Set From address
   "permissions": [
     "accountsRead",  // Access identities
     "messagesRead",  // Read original message recipients
-    "compose"        // Modify compose details
+    "compose",       // Modify compose details
+    "storage"        // Store settings and preferences (for Feature 2)
   ]
 }
 ```
@@ -140,6 +141,12 @@ If alias found → Set From address
 thunderbird_send_as/
 ├── manifest.json           # Extension metadata and permissions
 ├── background.js           # Main extension logic
+├── options/                # Settings UI (for Feature 2)
+│   ├── options.html
+│   └── options.js
+├── popup/                  # Alias prompt dialog (for Feature 2)
+│   ├── prompt.html
+│   └── prompt.js
 ├── icons/                  # Extension icons (optional)
 │   ├── icon-48.png
 │   └── icon-96.png
@@ -155,9 +162,13 @@ thunderbird_send_as/
   "name": "Send As Alias",
   "version": "1.0",
   "description": "Automatically set From address to match email aliases in replies",
-  "permissions": ["accountsRead", "messagesRead", "compose"],
+  "permissions": ["accountsRead", "messagesRead", "compose", "storage"],
   "background": {
     "scripts": ["background.js"]
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
   },
   "icons": {
     "48": "icons/icon-48.png",
@@ -166,12 +177,106 @@ thunderbird_send_as/
 }
 ```
 
+## Feature 2: Alias Suggestion for All Emails (Optional)
+
+**Purpose**: Prompt user to consider using an alias when composing from base address
+
+**Behavior**:
+- **Configured per account** (opt-in via options)
+- When enabled for a specific account and user composes ANY email (new, reply, reply all, forward):
+  - Detect if From address is a base identity (has no `+` alias)
+  - **Priority**: Feature 1 runs first for replies/forwards (auto-detects alias), Feature 2 only prompts if Feature 1 didn't find a match
+  - Show confirmation dialog: "You're sending from [base address]. Would you like to use an alias instead?"
+  - Options:
+    - "Use alias: [input field]" - user can type alias name
+    - "Continue with base address"
+    - "Don't ask again for this recipient"
+- Only triggers for accounts where the feature is enabled
+- "Don't ask again" list is also per-account
+
+**Implementation**:
+```javascript
+// In compose.onBeforeSend handler
+async function handleCompose(tab, composeDetails) {
+  const fromEmail = extractEmail(composeDetails.from)
+  let aliasWasSet = false
+
+  // FEATURE 1: Auto-detect alias for replies/forwards
+  if (composeDetails.relatedMessageId) {
+    // Get original message
+    const originalMessage = await messenger.messages.get(composeDetails.relatedMessageId)
+    const recipients = [...(originalMessage.to || []), ...(originalMessage.cc || [])]
+
+    // Try to find matching alias
+    const matchedAlias = findMatchingAlias(recipients, baseEmails)
+
+    if (matchedAlias) {
+      await messenger.compose.setComposeDetails(tab.id, { from: matchedAlias })
+      aliasWasSet = true
+    }
+  }
+
+  // FEATURE 2: Prompt for alias if:
+  // - Feature is enabled for this account
+  // - From is still a base address (Feature 1 didn't set an alias)
+  // - Not in "don't ask again" list
+  if (!aliasWasSet && settings.promptForAlias[fromEmail]) {
+    if (!fromEmail.includes('+') && baseEmails.includes(fromEmail)) {
+      // Get recipient for "don't ask again" check
+      const toEmail = extractEmail(composeDetails.to[0])
+
+      // Check if we should skip this recipient
+      if (!settings.dontAskAgain[fromEmail]?.includes(toEmail)) {
+        // Prompt user for alias
+        const result = await showAliasPrompt(fromEmail, toEmail)
+
+        if (result.useAlias) {
+          const alias = `${fromEmail.split('@')[0]}+${result.aliasName}@${fromEmail.split('@')[1]}`
+          await messenger.compose.setComposeDetails(tab.id, { from: alias })
+        } else if (result.dontAskAgain) {
+          // Save to dontAskAgain list for this account
+          if (!settings.dontAskAgain[fromEmail]) {
+            settings.dontAskAgain[fromEmail] = []
+          }
+          settings.dontAskAgain[fromEmail].push(toEmail)
+          await browser.storage.local.set({ dontAskAgain: settings.dontAskAgain })
+        }
+      }
+    }
+  }
+}
+```
+
+**Settings Required**:
+- `promptForAlias` (object, per-account configuration):
+  ```javascript
+  {
+    "account1@posteo.de": true,      // Enabled for this account
+    "account2@gmail.com": false,     // Disabled for this account
+    "account3@example.com": true     // Enabled for this account
+  }
+  ```
+- `dontAskAgain` (object, per-account arrays of recipient addresses):
+  ```javascript
+  {
+    "account1@posteo.de": ["recipient1@example.com", "recipient2@example.com"],
+    "account2@gmail.com": []
+  }
+  ```
+
+**UI Considerations**:
+- Dialog should be non-intrusive
+- Quick keyboard access (Enter to accept, Esc to skip)
+- Remember previous aliases used with same recipient domain
+
 ## Future Enhancements
 
 1. **Options UI**:
    - Toggle for Reply vs Reply All vs Forward
+   - **Per-account toggle for alias suggestion on new emails** ✓
    - Custom pattern matching
    - Whitelist/blacklist domains
+   - **Per-account "don't ask again" list management** ✓
 
 2. **Better Events**:
    - Hook earlier in compose process
@@ -185,9 +290,14 @@ thunderbird_send_as/
    - UI to select which alias to use
    - Remember user preferences
 
+5. **Alias History**:
+   - Remember commonly used aliases
+   - Quick-select from dropdown
+   - Suggest aliases based on recipient domain
+
 ## Testing Plan
 
-Test scenarios:
+### Feature 1: Auto-Reply with Alias
 1. Reply to email sent to `user+test@posteo.de`
 2. Reply All with multiple aliases in To/CC
 3. Forward message with alias
@@ -195,6 +305,17 @@ Test scenarios:
 5. Multiple Thunderbird identities configured
 6. Different domains
 7. Edge cases: malformed addresses, multiple + signs
+
+### Feature 2: Alias Suggestion for All Emails
+1. **New emails**: Compose from base address with feature enabled (should prompt)
+2. **Reply without alias in original**: Reply to email sent to base address (should prompt if enabled)
+3. **Reply with alias in original**: Reply to email sent to alias (Feature 1 auto-sets, Feature 2 doesn't prompt)
+4. **Feature disabled**: Compose any email with feature disabled (no prompt)
+5. **From aliased address**: Compose from aliased address (should not prompt)
+6. **Don't ask again**: Test per-recipient skip functionality
+7. **Cancel/skip**: User dismisses prompt without entering alias
+8. **Enter alias**: User enters alias and confirms
+9. **Multiple accounts**: Different settings per account
 
 ## References
 
