@@ -116,14 +116,24 @@ my-extension/
 **Approach**: Extract base addresses from all configured identities, then auto-detect aliases
 
 1. On extension load, get all identities via `identities.list()`
-2. Extract email addresses from each identity
-3. For each base identity email (e.g., `user@posteo.de`):
-   - When replying/forwarding, check if original recipient matches `user+*@posteo.de`
-   - If match found, use that aliased address as From
+2. Extract email addresses from each identity (these are the BASE addresses)
+3. When replying/forwarding:
+   - Get original recipient addresses from To/CC
+   - For each recipient that contains `+`:
+     - Strip the alias to get base address (e.g., `user+shopping@posteo.de` → `user@posteo.de`)
+     - Check if this base matches any configured identity
+     - If YES: Use the FULL aliased address (e.g., `user+shopping@posteo.de`) as From
 4. This works automatically with user's existing identity configuration!
 
+**Example**:
+- Identity configured: `user@posteo.de` (no alias)
+- Email received at: `user+shopping@posteo.de`
+- Reply From will be: `user+shopping@posteo.de` ✓
+
 **Benefits**:
-- No manual configuration needed
+- No manual configuration needed - just configure base addresses
+- Don't need to create identities for every alias
 - Works with multiple accounts
 - Respects user's existing Thunderbird setup
 - Automatically supports any domain the user has configured
+- Dynamic - works with any alias pattern automatically

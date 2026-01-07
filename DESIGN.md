@@ -7,6 +7,13 @@ Automatically set the "From" address to match email aliases when replying to or 
 
 When a user has an identity configured as `user@posteo.de` and receives an email sent to `user+shopping@posteo.de`, replying should automatically set the From address to `user+shopping@posteo.de`.
 
+**Key principle**: The extension extracts only *base* email addresses from configured identities (e.g., `user@posteo.de`). When replying to an aliased address (e.g., `user+shopping@posteo.de`), it:
+1. Strips the alias to get the base (`user@posteo.de`)
+2. Checks if this base matches any configured identity
+3. If match found, uses the *full aliased address* from the original recipient as the From address
+
+This means users don't need to configure every alias - just their base addresses!
+
 ## Technical Design
 
 ### Architecture
@@ -67,14 +74,16 @@ If alias found → Set From address
 
        // Check if email contains +
        if (email.includes('+')) {
-         // Extract base (remove +alias part)
+         // Extract base address (remove +alias part)
          const [localPart, domain] = email.split('@')
          const baseLocal = localPart.split('+')[0]
          const baseEmail = `${baseLocal}@${domain}`
 
-         // Check if base matches any identity
+         // Check if base matches any configured identity
          if (baseEmails.includes(baseEmail)) {
-           return email // Found matching alias
+           // IMPORTANT: Return the FULL aliased address from the recipient
+           // NOT the base address from the identity
+           return email // e.g., returns "user+shopping@posteo.de"
          }
        }
      }

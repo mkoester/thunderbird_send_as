@@ -63,13 +63,17 @@ Build a Thunderbird extension that automatically sets the "From" address to matc
 ## Decisions Made
 - **Scope**: Any domain with + pattern (not just posteo.de)
 - **Triggers**: Reply, Reply All, AND Forward
-- **Pattern detection**: Extract from configured Thunderbird identities
+- **Pattern detection**: Extract BASE addresses only from configured Thunderbird identities
+- **Alias handling**: Use the full aliased address from original recipient (not from identity)
 - **Multiple matches**: Use first match found
 - **User level**: Beginner-friendly development approach
 - **Manifest version**: V3 (modern Thunderbird standard)
 - **Implementation**: Use WebExtension APIs (not legacy WindowListener)
 - **Event**: Use `compose.onBeforeSend` for MVP
-- **Smart approach**: Auto-detect base emails from identities, match aliases automatically
+- **Smart approach**:
+  - Extract base emails from identities (e.g., `user@posteo.de`)
+  - Match against stripped aliases (e.g., `user+shop@posteo.de` → `user@posteo.de`)
+  - Set From to FULL alias from original recipient (e.g., `user+shop@posteo.de`)
 
 ## Reference Extensions Found
 - Custom Sender Address and Reply (Cusedar) - active, similar functionality
