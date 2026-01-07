@@ -18,24 +18,26 @@ Build a Thunderbird extension with three features:
   - ✅ Created DESIGN.md with full technical specification
   - ✅ Answered user questions about scope and behavior
   - ✅ Decided on algorithm and architecture
-- [ ] Phase 3: Implement core functionality
-  - Create manifest.json with all permissions
-  - Implement background.js:
-    - Feature 1: Auto-reply with alias (identity loading, event handlers, alias detection)
-    - Feature 2: Alias suggestion for all emails (optional, disabled by default per account)
-    - Feature 3: Auto-create identity for new aliases (optional, enabled by default)
-  - Create options UI (for Features 2 & 3 settings)
-  - Create alias prompt dialog (for Feature 2)
-  - Create identity creation dialog (for Feature 3)
-  - Implement settings storage
-  - Handle edge cases
-- [ ] Phase 4: Testing and refinement
+- [x] Phase 3: Implement core functionality
+  - ✅ Create manifest.json with all permissions
+  - ✅ Implement background.js:
+    - ✅ Feature 1: Auto-reply with alias (identity loading, event handlers, alias detection)
+    - ✅ Feature 2: Alias suggestion for all emails (optional, disabled by default per account)
+    - ✅ Feature 3: Auto-create identity for new aliases (optional, enabled by default)
+  - ✅ Create options UI (for Features 2 & 3 settings)
+  - ✅ Create alias prompt dialog (for Feature 2) - using native prompt() temporarily
+  - ✅ Create identity creation dialog (for Feature 3) - using native prompt() temporarily
+  - ✅ Implement settings storage
+  - ✅ Handle edge cases
+  - ✅ Write documentation (README.md, INSTALL.md, FEATURES.md)
+- [ ] Phase 4: Testing and debugging
+  - [ ] Debug Features 1 & 2 not working (IN PROGRESS)
+  - [ ] Fix background script stopping issue (IN PROGRESS)
   - Test Feature 1 (auto-reply) scenarios
   - Test Feature 2 (alias suggestion) scenarios
   - Test Feature 3 (identity creation) scenarios
   - Add error handling
-  - Write documentation (README.md)
-  - Create usage guide for all three features
+  - Create icon files (currently placeholders)
 
 ## Key Questions
 
@@ -50,10 +52,7 @@ Build a Thunderbird extension with three features:
    - Note: Overrides header, doesn't change identity (but posteo.de should accept it)
 
 ### Still to Answer:
-4. Should the extension work only for posteo.de or be configurable for other providers?
-5. Should this work for "Reply All" and "Forward" as well?
-6. What if multiple To/CC addresses match the +alias pattern?
-7. Should we use `onBeforeSend` event or an earlier compose event?
+(All questions answered)
 
 ## Technical Requirements
 - Thunderbird version: 115+ (modern WebExtension API, Manifest V3)
@@ -123,14 +122,101 @@ Build a Thunderbird extension with three features:
 - **User level**: Beginner-friendly development approach
 - **Manifest version**: V3 (modern Thunderbird standard)
 - **Implementation**: Use WebExtension APIs (not legacy WindowListener)
-- **Event**: Use `compose.onBeforeSend` for all features
+- **Event**: Use `compose.onComposeStateChanged` for early intercept (changed from `onBeforeSend`)
 
 ## Reference Extensions Found
 - Custom Sender Address and Reply (Cusedar) - active, similar functionality
 - Reply As Original Recipient - GitHub available, may be outdated
 
 ## Errors Encountered
-(None yet)
+
+### Error 1: Wrong event listener (onBeforeSend)
+**Reported**: User tested temporary add-on, features not working, background script goes from "running" to "stopped"
+
+**Root Cause**: Using wrong event listener
+- Used `compose.onBeforeSend` which fires right before sending (too late)
+- Prompts were blocking at send time
+- Background script may have timed out waiting for user interaction
+
+**Solution**: Changed to `compose.onComposeStateChanged`
+- Fires when compose window opens (early intercept)
+- Allows natural prompt flow before user starts composing
+- Better user experience - From field set before user sees compose UI
+- Modified background.js lines 341-378
+
+**Status**: ✅ Fixed
+
+### Error 2: Wrong state property check (isComposing)
+**Reported**: Extension still not working after event listener fix
+
+**Root Cause**: Checking for `state.isComposing` which doesn't exist
+- The state object has `canSendNow` and `canSendLater` properties
+- `isComposing` property doesn't exist in ComposeState
+
+**Solution**: Fixed the condition and added tab tracking
+- Check for `canSendNow` or `canSendLater` becoming true
+- Added `processedComposeTabs` Set to track which compose windows we've handled
+- Only process each compose window once
+
+**Status**: ✅ Fixed
+
+### Error 3: Empty recipients array (messages.get())
+**Reported**: Feature 1 still not working - recipients array is empty
+
+**Root Cause**: Using `messages.get()` instead of `messages.getFull()`
+- `messages.get()` returns MessageHeader with unpopulated recipient fields
+- `originalMessage.to` and `originalMessage.cc` are empty
+
+**Solution**: Changed to `messages.getFull()`
+- Use `messenger.messages.getFull()` instead of `messages.get()`
+- Modified background.js lines 268-283
+
+**Status**: ❌ Partial fix - found correct API but wrong property path
+
+### Error 4: Wrong property path in fullMessage
+**Reported**: After switching to `messages.getFull()`, recipients still undefined
+
+**Root Cause**: Recipients not at top level of fullMessage object
+- Was accessing `fullMessage.recipients` and `fullMessage.ccList`
+- These properties don't exist at top level
+- Recipients are nested in `fullMessage.headers` object
+
+**Solution**: Access recipients from headers object
+- Changed to `fullMessage.headers.to` and `fullMessage.headers.cc`
+- Modified background.js lines 273-283
+
+**Status**: ✅ Fixed and tested - Feature 1 working
+
+### Error 5: Display name lost when setting From field
+**Reported**: When original recipient is `"Name" <user+alias@posteo.de>`, From field becomes `<user+alias@posteo.de>` (display name lost)
+
+**Root Cause**: `findMatchingAlias()` returning just email address instead of full recipient string
+- Was returning `email` (extracted email only)
+- Lost display name from original recipient
+
+**Solution**: Return full recipient string to preserve display name
+- Changed return value from `email` to `recipient` (line 118)
+- Now preserves format: `"Name" <user+alias@domain.com>`
+
+**Status**: ✅ Fixed, awaiting user testing
+
+### Error 6: Feature 2 not working (prompt() not available in background scripts)
+**Reported**: Alias suggestion prompt not appearing
+
+**Root Cause**: Native `prompt()` and `confirm()` not available in background scripts
+- Modern WebExtensions don't support native dialogs in background scripts
+- Code was triggering Feature 2 but dialog never appeared
+- Functions like `prompt()` only work in content scripts or popup windows
+
+**Solution**: Replaced native dialogs with popup windows
+- Created `popup/alias-prompt.html` and `popup/alias-prompt.js`
+- Created `popup/identity-prompt.html` and `popup/identity-prompt.js`
+- Added `messenger.runtime.onMessage` listener to receive popup responses
+- Changed `showAliasPrompt()` to use `messenger.windows.create()`
+- Changed `showCreateIdentityPrompt()` to use `messenger.windows.create()`
+- Updated response handling for both features
+
+**Status**: ✅ Fixed, awaiting user testing
 
 ## Status
-**Currently between Phase 2 and Phase 3** - Design complete, ready to implement when approved by user
+**Currently in Phase 4** - Debugging Features 1 & 2. Feature 1 working, investigating Feature 2 not triggering.

@@ -12,6 +12,29 @@ let settings = {
   skipIdentityCreation: []   // Array of aliases to skip: ["user+temp@domain.com"]
 };
 
+// Track which compose windows we've already processed (to avoid duplicate handling)
+const processedComposeTabs = new Set();
+
+/**
+ * Handle messages from popup windows
+ */
+messenger.runtime.onMessage.addListener((message, sender) => {
+  if (message.type === 'aliasPromptResponse') {
+    // Call the stored resolve function from showAliasPrompt
+    if (window.pendingAliasPromptResolve) {
+      window.pendingAliasPromptResolve(message);
+      window.pendingAliasPromptResolve = null;
+    }
+  }
+  if (message.type === 'identityPromptResponse') {
+    // Call the stored resolve function from showCreateIdentityPrompt
+    if (window.pendingIdentityPromptResolve) {
+      window.pendingIdentityPromptResolve(message);
+      window.pendingIdentityPromptResolve = null;
+    }
+  }
+});
+
 /**
  * Initialize extension
  */
@@ -85,6 +108,7 @@ function extractEmail(recipient) {
 /**
  * FEATURE 1: Find matching alias in recipients
  * Checks if any recipient has a +alias that matches our base identities
+ * Returns the full recipient string (with display name if present)
  */
 function findMatchingAlias(recipients, baseEmails) {
   if (!recipients || !Array.isArray(recipients)) {
@@ -109,8 +133,9 @@ function findMatchingAlias(recipients, baseEmails) {
       // Check if base matches any configured identity
       if (baseEmails.includes(baseEmail)) {
         console.log(`Send As Alias: Found matching alias: ${email} (base: ${baseEmail})`);
-        // IMPORTANT: Return the FULL aliased address from the recipient
-        return email;
+        // IMPORTANT: Return the FULL recipient string (preserves display name if present)
+        // e.g., "Name" <user+alias@domain.com> or just user+alias@domain.com
+        return recipient;
       }
     }
   }
@@ -120,59 +145,42 @@ function findMatchingAlias(recipients, baseEmails) {
 
 /**
  * FEATURE 2: Show alias suggestion prompt
+ * Opens a popup window and waits for user response
  */
 async function showAliasPrompt(fromEmail, toEmail) {
-  // For now, return a simple prompt using native dialog
-  // TODO: Replace with proper UI dialog
-  const aliasName = prompt(
-    `You're sending from ${fromEmail}.\n\n` +
-    `Enter an alias name to use ${fromEmail.split('@')[0]}+ALIAS@${fromEmail.split('@')[1]}:\n\n` +
-    `(Leave empty to continue with base address)`
-  );
+  return new Promise((resolve) => {
+    // Store the resolve function so we can call it when we get the response
+    window.pendingAliasPromptResolve = resolve;
 
-  if (aliasName === null) {
-    // User cancelled
-    return { useAlias: false, dontAskAgain: false };
-  }
-
-  if (aliasName.trim() === '') {
-    // User wants to continue with base address
-    // Ask if they want to skip this recipient
-    const skip = confirm(
-      `Continue with base address ${fromEmail}.\n\n` +
-      `Don't ask again for recipient ${toEmail}?`
-    );
-    return { useAlias: false, dontAskAgain: skip };
-  }
-
-  // User entered an alias
-  return { useAlias: true, aliasName: aliasName.trim(), dontAskAgain: false };
+    // Open popup window
+    const url = `popup/alias-prompt.html?from=${encodeURIComponent(fromEmail)}&to=${encodeURIComponent(toEmail || '')}`;
+    messenger.windows.create({
+      url: url,
+      type: 'popup',
+      width: 550,
+      height: 400
+    });
+  });
 }
 
 /**
  * FEATURE 3: Show identity creation prompt
+ * Opens a popup window and waits for user response
  */
 async function showCreateIdentityPrompt(options) {
-  // For now, return a simple prompt using native dialog
-  // TODO: Replace with proper UI dialog
-  const response = prompt(
-    `Save ${options.email} as a new identity?\n\n` +
-    `Suggested name: ${options.suggestedName}\n\n` +
-    `Enter a custom name, or leave as-is to accept suggestion:\n` +
-    `(Cancel to skip)`
-  );
+  return new Promise((resolve) => {
+    // Store the resolve function so we can call it when we get the response
+    window.pendingIdentityPromptResolve = resolve;
 
-  if (response === null) {
-    // User cancelled - ask if they want to skip this alias permanently
-    const skip = confirm(
-      `Don't ask again to create identity for ${options.email}?`
-    );
-    return { create: false, dontAskAgain: skip };
-  }
-
-  // User wants to create the identity
-  const name = response.trim() || options.suggestedName;
-  return { create: true, name: name, dontAskAgain: false };
+    // Open popup window
+    const url = `popup/identity-prompt.html?email=${encodeURIComponent(options.email)}&name=${encodeURIComponent(options.suggestedName)}`;
+    messenger.windows.create({
+      url: url,
+      type: 'popup',
+      width: 550,
+      height: 350
+    });
+  });
 }
 
 /**
@@ -218,17 +226,19 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
       // Create new identity
       const newIdentity = await messenger.identities.create(baseIdentity.accountId, {
         email: aliasEmail,
-        name: result.name || suggestedName,
+        name: result.identityName || suggestedName,
         replyTo: baseIdentity.replyTo || '',
         composeHtml: baseIdentity.composeHtml,
         signature: baseIdentity.signature || ''
       });
 
-      console.log(`Send As Alias: Created new identity: ${result.name} <${aliasEmail}>`);
+      console.log(`Send As Alias: Created new identity: ${result.identityName} <${aliasEmail}>`);
 
       // Reload base emails to include the new identity
       await loadBaseEmails();
-    } else if (result.dontAskAgain) {
+    }
+
+    if (result.dontAskAgain) {
       // Remember not to ask for this alias
       settings.skipIdentityCreation.push(aliasEmail);
       await messenger.storage.local.set({ skipIdentityCreation: settings.skipIdentityCreation });
@@ -244,9 +254,16 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
  */
 async function handleCompose(tab, composeDetails) {
   try {
-    console.log('Send As Alias: Handling compose event');
+    console.log('Send As Alias: ===== Handling compose event =====');
+    console.log('Send As Alias: From:', composeDetails.from);
+    console.log('Send As Alias: To:', composeDetails.to);
+    console.log('Send As Alias: relatedMessageId:', composeDetails.relatedMessageId);
+    console.log('Send As Alias: Base emails:', baseEmails);
+    console.log('Send As Alias: Settings:', settings);
 
     const fromEmail = extractEmail(composeDetails.from);
+    console.log('Send As Alias: Extracted from email:', fromEmail);
+
     let aliasWasSet = false;
     let usedAlias = null;
 
@@ -255,21 +272,34 @@ async function handleCompose(tab, composeDetails) {
       console.log('Send As Alias: Detected reply/forward, checking for alias...');
 
       try {
-        // Get original message
-        const originalMessage = await messenger.messages.get(composeDetails.relatedMessageId);
+        // Get original message with full headers
+        const fullMessage = await messenger.messages.getFull(composeDetails.relatedMessageId);
+        console.log('Send As Alias: Full message:', fullMessage);
+        console.log('Send As Alias: Headers:', fullMessage.headers);
+
+        // Extract recipients from headers
+        const toHeader = fullMessage.headers.to || [];
+        const ccHeader = fullMessage.headers.cc || [];
+        console.log('Send As Alias: To header:', toHeader);
+        console.log('Send As Alias: CC header:', ccHeader);
+
         const recipients = [
-          ...(originalMessage.to || []),
-          ...(originalMessage.cc || [])
+          ...toHeader,
+          ...ccHeader
         ];
+        console.log('Send As Alias: Recipients to check:', recipients);
 
         // Try to find matching alias
         const matchedAlias = findMatchingAlias(recipients, baseEmails);
+        console.log('Send As Alias: Matched alias:', matchedAlias);
 
         if (matchedAlias) {
           await messenger.compose.setComposeDetails(tab.id, { from: matchedAlias });
-          console.log(`Send As Alias: Set From to ${matchedAlias}`);
+          console.log(`Send As Alias: Feature 1 - Set From to ${matchedAlias}`);
           aliasWasSet = true;
           usedAlias = matchedAlias;
+        } else {
+          console.log('Send As Alias: Feature 1 - No matching alias found');
         }
       } catch (error) {
         console.error('Send As Alias: Error in Feature 1:', error);
@@ -277,15 +307,26 @@ async function handleCompose(tab, composeDetails) {
     }
 
     // FEATURE 2: Prompt for alias if not already set
+    console.log(`Send As Alias: Feature 2 check - aliasWasSet: ${aliasWasSet}, fromEmail: ${fromEmail}`);
+    console.log(`Send As Alias: Feature 2 - promptForAlias settings:`, settings.promptForAlias);
+    console.log(`Send As Alias: Feature 2 - enabled for ${fromEmail}?`, settings.promptForAlias[fromEmail]);
+
     if (!aliasWasSet && settings.promptForAlias[fromEmail]) {
       console.log('Send As Alias: Feature 2 enabled for this account, checking...');
 
       // Check if from is a base address (no + sign)
+      console.log(`Send As Alias: Feature 2 - fromEmail includes +? ${fromEmail.includes('+')}`);
+      console.log(`Send As Alias: Feature 2 - baseEmails includes fromEmail? ${baseEmails.includes(fromEmail)}`);
+
       if (!fromEmail.includes('+') && baseEmails.includes(fromEmail)) {
         // Get recipient for "don't ask again" check
         const toEmail = extractEmail(composeDetails.to && composeDetails.to[0]);
+        console.log(`Send As Alias: Feature 2 - toEmail: ${toEmail}`);
 
         // Check if we should skip this recipient
+        const dontAskList = settings.dontAskAgain[fromEmail] || [];
+        console.log(`Send As Alias: Feature 2 - dontAskAgain list for ${fromEmail}:`, dontAskList);
+
         if (toEmail && !settings.dontAskAgain[fromEmail]?.includes(toEmail)) {
           console.log(`Send As Alias: Prompting for alias...`);
 
@@ -309,8 +350,14 @@ async function handleCompose(tab, composeDetails) {
           } catch (error) {
             console.error('Send As Alias: Error in Feature 2:', error);
           }
+        } else {
+          console.log(`Send As Alias: Feature 2 - Skipping (toEmail in don't ask list or toEmail is empty)`);
         }
+      } else {
+        console.log(`Send As Alias: Feature 2 - Skipping (from has + sign or not in base emails)`);
       }
+    } else {
+      console.log(`Send As Alias: Feature 2 - Skipping (alias was already set or not enabled for this account)`);
     }
 
     // FEATURE 3: Offer to create identity for new alias
@@ -333,23 +380,78 @@ async function handleCompose(tab, composeDetails) {
   }
 }
 
-// Event listeners
-messenger.compose.onBeforeSend.addListener(async (tab, details) => {
-  console.log('Send As Alias: onBeforeSend triggered');
-  await handleCompose(tab, details);
-  // Return empty object to allow send to proceed
-  return {};
+/**
+ * Event listener for compose.onComposeStateChanged
+ * Fires when compose state changes (canSendNow, canSendLater)
+ * We track processed tabs to only handle each window once when it opens
+ */
+messenger.compose.onComposeStateChanged.addListener(async (tab, state) => {
+  console.log('Send As Alias: Compose state changed, tab:', tab.id, 'state:', state);
+
+  // Only process each compose window once
+  if (processedComposeTabs.has(tab.id)) {
+    console.log('Send As Alias: Already processed this compose window');
+    return;
+  }
+
+  // Ensure the compose window has loaded (when send options become available)
+  if (!state.canSendNow && !state.canSendLater) {
+    console.log('Send As Alias: Compose window not yet ready (send options unavailable)');
+    return;
+  }
+
+  // Mark this tab as processed
+  processedComposeTabs.add(tab.id);
+  console.log('Send As Alias: Processing compose window for first time');
+
+  try {
+    // Ensure state is loaded (in case background script was restarted)
+    if (baseEmails.length === 0) {
+      console.log('Send As Alias: State not loaded, reinitializing...');
+      await initialize();
+    }
+
+    // Get current compose details
+    const composeDetails = await messenger.compose.getComposeDetails(tab.id);
+    console.log('Send As Alias: Compose details:', composeDetails);
+
+    // Handle compose (same logic as before, now with tab object)
+    await handleCompose(tab, composeDetails);
+
+    console.log('Send As Alias: Compose window intercepted and processed');
+  } catch (error) {
+    console.error('Send As Alias: Error in onComposeStateChanged:', error);
+  }
 });
 
 // Listen for settings changes
 messenger.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'local') {
-    console.log('Send As Alias: Settings changed, reloading...');
+    console.log('Send As Alias: Settings changed:', changes);
     loadSettings();
   }
 });
 
-// Initialize when extension loads
-initialize();
+// Listen for identity changes (when user adds/removes identities)
+messenger.identities.onCreated.addListener((id, identity) => {
+  console.log('Send As Alias: Identity created:', identity.email);
+  loadBaseEmails();
+});
 
-console.log('Send As Alias: Background script loaded');
+messenger.identities.onUpdated.addListener((id, changed) => {
+  console.log('Send As Alias: Identity updated:', id);
+  loadBaseEmails();
+});
+
+messenger.identities.onDeleted.addListener((id) => {
+  console.log('Send As Alias: Identity deleted:', id);
+  loadBaseEmails();
+});
+
+// Initialize when extension loads
+console.log('Send As Alias: Background script starting...');
+initialize().then(() => {
+  console.log('Send As Alias: Background script fully initialized');
+}).catch(error => {
+  console.error('Send As Alias: Initialization error:', error);
+});
