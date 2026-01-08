@@ -430,6 +430,7 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
 async function handleCompose(tab, composeDetails) {
   try {
     const fromEmail = extractEmail(composeDetails.from);
+    debugLog(`Send As Alias: handleCompose called - tab.id=${tab.id}, from=${fromEmail}, relatedMessageId=${composeDetails.relatedMessageId}, to=${JSON.stringify(composeDetails.to)}`);
 
     let aliasWasSet = false;
     let usedAlias = null;
@@ -476,7 +477,7 @@ async function handleCompose(tab, composeDetails) {
       if (currentIdentity) {
         const accountSettings = getAccountSettings(currentIdentity.id);
 
-        if (accountSettings.feature2Enabled && accountSettings.feature1Enabled) {
+        if (accountSettings.feature2Enabled) {
           const method = accountSettings.aliasMethod;
           let shouldPrompt = false;
 
@@ -495,8 +496,9 @@ async function handleCompose(tab, composeDetails) {
 
             // Check if we should skip this recipient
             const dontAskList = accountSettings.feature2DontAskList || [];
+            const shouldSkipRecipient = toEmail && dontAskList.includes(toEmail);
 
-            if (toEmail && !dontAskList.includes(toEmail)) {
+            if (!shouldSkipRecipient) {
               debugLog(`Send As Alias: Feature 2 - Prompting for alias (method: ${method})`);
 
               try {
@@ -504,16 +506,22 @@ async function handleCompose(tab, composeDetails) {
                 const result = await showAliasPrompt(fromEmail, toEmail, method, domain);
 
                 if (result.useAlias && result.aliasName) {
-                  let alias;
+                  let aliasEmail;
                   if (method === 'plus') {
-                    alias = `${fromEmail.split('@')[0]}+${result.aliasName}@${domain}`;
+                    aliasEmail = `${fromEmail.split('@')[0]}+${result.aliasName}@${domain}`;
                   } else if (method === 'own-domain' || method === 'catchall') {
-                    alias = `${result.aliasName}@${domain}`;
+                    aliasEmail = `${result.aliasName}@${domain}`;
                   }
 
-                  await messenger.compose.setComposeDetails(tab.id, { from: alias });
-                  debugLog(`Send As Alias: Feature 2 - Set From to ${alias}`);
-                  usedAlias = alias;
+                  // Preserve the name part from the current identity
+                  let aliasWithName = aliasEmail;
+                  if (currentIdentity.name) {
+                    aliasWithName = `${currentIdentity.name} <${aliasEmail}>`;
+                  }
+
+                  await messenger.compose.setComposeDetails(tab.id, { from: aliasWithName });
+                  debugLog(`Send As Alias: Feature 2 - Set From to ${aliasWithName}`);
+                  usedAlias = aliasEmail;
                 } else if (result.dontAskAgain) {
                   // Save to dontAskAgain list for this account
                   accountSettings.feature2DontAskList = accountSettings.feature2DontAskList || [];
@@ -553,24 +561,9 @@ async function handleCompose(tab, composeDetails) {
 }
 
 /**
- * Event listener for compose.onComposeStateChanged
- * Fires when compose state changes (canSendNow, canSendLater)
- * We track processed tabs to only handle each window once when it opens
+ * Process a compose tab when it's ready
  */
-messenger.compose.onComposeStateChanged.addListener(async (tab, state) => {
-  // Only process each compose window once
-  if (processedComposeTabs.has(tab.id)) {
-    return;
-  }
-
-  // Ensure the compose window has loaded (when send options become available)
-  if (!state.canSendNow && !state.canSendLater) {
-    return;
-  }
-
-  // Mark this tab as processed
-  processedComposeTabs.add(tab.id);
-
+async function processComposeTab(tab) {
   try {
     // Ensure state is loaded (in case background script was restarted)
     if (baseEmails.length === 0) {
@@ -585,7 +578,88 @@ messenger.compose.onComposeStateChanged.addListener(async (tab, state) => {
 
     debugLog('Send As Alias: Compose window intercepted and processed');
   } catch (error) {
-    errorLog('Send As Alias: Error in onComposeStateChanged:', error);
+    errorLog('Send As Alias: Error processing compose tab:', error);
+  }
+}
+
+/**
+ * Wait for compose tab to be ready and process it
+ */
+async function waitAndProcessComposeTab(tab) {
+  debugLog(`Send As Alias: Waiting for compose tab ${tab.id} to be ready...`);
+
+  // Poll for up to 5 seconds, checking every 100ms
+  for (let i = 0; i < 50; i++) {
+    try {
+      // Try to get compose details - if this works, the tab is ready
+      const composeDetails = await messenger.compose.getComposeDetails(tab.id);
+
+      // Check if we got a valid from address (indicates compose window is ready)
+      if (composeDetails && composeDetails.from) {
+        debugLog(`Send As Alias: Compose tab ${tab.id} is ready! from=${composeDetails.from}`);
+        await processComposeTab(tab);
+        return;
+      }
+
+      debugLog(`Send As Alias: Poll ${i}: Waiting for compose details... from=${composeDetails?.from}`);
+    } catch (error) {
+      debugLog(`Send As Alias: Poll ${i}: Error getting compose details: ${error.message}`);
+    }
+
+    // Wait 100ms before next check
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  errorLog(`Send As Alias: Timeout waiting for compose tab ${tab.id} to be ready`);
+}
+
+/**
+ * Event listener for compose.onComposeStateChanged
+ * Fires when compose state changes (canSendNow, canSendLater)
+ * We track processed tabs to only handle each window once when it opens
+ */
+messenger.compose.onComposeStateChanged.addListener(async (tab, state) => {
+  debugLog(`Send As Alias: onComposeStateChanged fired - tab.id=${tab.id}, canSendNow=${state.canSendNow}, canSendLater=${state.canSendLater}, already processed=${processedComposeTabs.has(tab.id)}`);
+
+  // Ensure the compose window has loaded (when send options become available)
+  if (!state.canSendNow && !state.canSendLater) {
+    debugLog(`Send As Alias: Skipping - send options not available yet`);
+    return;
+  }
+
+  // Only process each compose window once
+  if (processedComposeTabs.has(tab.id)) {
+    debugLog(`Send As Alias: Already processed this tab, skipping`);
+    return;
+  }
+
+  // Mark this tab as processed
+  processedComposeTabs.add(tab.id);
+
+  await processComposeTab(tab);
+});
+
+/**
+ * Listen for new windows being created
+ * This catches compose windows that might not trigger onComposeStateChanged properly
+ */
+messenger.windows.onCreated.addListener(async (window) => {
+  debugLog(`Send As Alias: Window created - id=${window.id}, type=${window.type}`);
+
+  // Check if this is a compose window
+  if (window.type === 'messageCompose') {
+    // Get tabs in this window
+    const tabs = await messenger.tabs.query({ windowId: window.id });
+    debugLog(`Send As Alias: Found ${tabs.length} tabs in compose window`);
+
+    for (const tab of tabs) {
+      // Only process if not already processed
+      if (!processedComposeTabs.has(tab.id)) {
+        processedComposeTabs.add(tab.id);
+        // Wait for the compose tab to be ready and process it
+        await waitAndProcessComposeTab(tab);
+      }
+    }
   }
 });
 
