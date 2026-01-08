@@ -173,12 +173,12 @@ async function showCreateIdentityPrompt(options) {
     window.pendingIdentityPromptResolve = resolve;
 
     // Open popup window
-    const url = `popup/identity-prompt.html?email=${encodeURIComponent(options.email)}&name=${encodeURIComponent(options.suggestedName)}`;
+    const url = `popup/identity-prompt.html?email=${encodeURIComponent(options.email)}&baseName=${encodeURIComponent(options.baseName)}`;
     messenger.windows.create({
       url: url,
       type: 'popup',
       width: 550,
-      height: 350
+      height: 300
     });
   });
 }
@@ -187,9 +187,12 @@ async function showCreateIdentityPrompt(options) {
  * FEATURE 3: Maybe create identity for new alias
  */
 async function maybeCreateIdentity(aliasEmail, baseEmail) {
+  console.log(`Send As Alias: maybeCreateIdentity called with aliasEmail: ${aliasEmail}, baseEmail: ${baseEmail}`);
+
   try {
     // Check if this alias already exists as an identity
     const allIdentities = await messenger.identities.list();
+    console.log(`Send As Alias: Loaded ${allIdentities.length} identities`);
     const exists = allIdentities.some(id => id.email.toLowerCase() === aliasEmail.toLowerCase());
 
     if (exists) {
@@ -211,9 +214,13 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
       return;
     }
 
+    console.log(`Send As Alias: Found base identity: ${baseIdentity.name} <${baseIdentity.email}>`);
+
     // Extract alias name from email
     const aliasName = aliasEmail.split('+')[1].split('@')[0];
     const suggestedName = `${baseIdentity.name} (${aliasName})`;
+
+    console.log(`Send As Alias: Prompting to create identity: ${suggestedName}`);
 
     // Prompt user
     const result = await showCreateIdentityPrompt({
@@ -221,6 +228,8 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
       suggestedName: suggestedName,
       baseName: baseIdentity.name
     });
+
+    console.log(`Send As Alias: Identity prompt result:`, result);
 
     if (result.create) {
       // Create new identity
@@ -297,7 +306,8 @@ async function handleCompose(tab, composeDetails) {
           await messenger.compose.setComposeDetails(tab.id, { from: matchedAlias });
           console.log(`Send As Alias: Feature 1 - Set From to ${matchedAlias}`);
           aliasWasSet = true;
-          usedAlias = matchedAlias;
+          // Extract just the email for Feature 3 (matchedAlias might be "Name" <email@domain.com>)
+          usedAlias = extractEmail(matchedAlias);
         } else {
           console.log('Send As Alias: Feature 1 - No matching alias found');
         }
@@ -361,6 +371,8 @@ async function handleCompose(tab, composeDetails) {
     }
 
     // FEATURE 3: Offer to create identity for new alias
+    console.log(`Send As Alias: Feature 3 check - usedAlias: ${usedAlias}, offerIdentityCreation: ${settings.offerIdentityCreation}`);
+
     if (usedAlias && settings.offerIdentityCreation) {
       console.log('Send As Alias: Feature 3 enabled, checking if identity exists...');
 
@@ -369,11 +381,14 @@ async function handleCompose(tab, composeDetails) {
         const [localPart, domain] = usedAlias.split('@');
         const baseLocal = localPart.split('+')[0];
         const baseEmail = `${baseLocal}@${domain}`;
+        console.log(`Send As Alias: Feature 3 - usedAlias: ${usedAlias}, baseEmail: ${baseEmail}`);
 
         await maybeCreateIdentity(usedAlias, baseEmail);
       } catch (error) {
         console.error('Send As Alias: Error in Feature 3:', error);
       }
+    } else {
+      console.log('Send As Alias: Feature 3 - Skipping (no alias used or feature disabled)');
     }
   } catch (error) {
     console.error('Send As Alias: Error in handleCompose:', error);

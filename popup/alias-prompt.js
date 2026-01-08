@@ -5,7 +5,6 @@ const toEmail = params.get('to');
 
 // Populate the UI
 document.getElementById('fromEmail').textContent = fromEmail;
-document.getElementById('toEmail').textContent = toEmail || '(New email)';
 
 // Update example alias
 const aliasInput = document.getElementById('aliasInput');

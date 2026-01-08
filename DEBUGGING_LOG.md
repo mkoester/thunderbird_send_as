@@ -4,6 +4,28 @@
 
 This document captures all debugging work done to get Features 1, 2, and 3 working.
 
+## Session Summary
+
+**Result**: ✅ **All 3 features fully working and tested!**
+
+**Issues Fixed**: 9 major issues resolved
+1. Wrong event listener (`onBeforeSend` → `onComposeStateChanged`)
+2. Wrong state property check (`isComposing` → `canSendNow/canSendLater`)
+3. Empty recipients array (`messages.get()` → `messages.getFull()`)
+4. Wrong property path (found recipients in `fullMessage.headers.to/cc`)
+5. Display name lost (preserve full recipient string)
+6. Native dialogs don't work (created popup windows)
+7. Identity creation failed (fixed `usedAlias` extraction)
+8. Confusing wording (updated checkbox text)
+9. Identity name preference (made Option 1 editable)
+
+**Files Modified**:
+- `background.js` - Fixed APIs, event handlers, added popup support
+- `popup/alias-prompt.html` - Created alias suggestion UI
+- `popup/alias-prompt.js` - Created alias suggestion logic
+- `popup/identity-prompt.html` - Created identity creation UI
+- `popup/identity-prompt.js` - Created identity creation logic
+
 ---
 
 ## Initial Problem Report
@@ -228,7 +250,7 @@ return recipient;  // Full string: "Name" <user+alias@domain.com>
 
 This preserves the display name if present in the original recipient field.
 
-**Status**: ✅ Fixed, awaiting user testing
+**Status**: ✅ Fixed and tested - Display names preserved
 
 ---
 
@@ -269,7 +291,86 @@ Replaced native dialogs with proper popup windows:
    - Popup sends response via `browser.runtime.sendMessage()`
    - Background script receives message and resolves the Promise
 
-**Status**: ✅ Fixed, awaiting user testing
+**Status**: ✅ Fixed and tested - Popup dialogs working
+
+---
+
+## Issue #7: Feature 3 Not Creating Identities
+
+### Problem
+User reported: Feature 2 popup shows, but no identity is created after entering an alias.
+
+### Root Cause
+When Feature 1 was fixed to preserve display names (Issue #5), `usedAlias` was being set to the full recipient string (e.g., `"Name" <user+alias@domain.com>`).
+
+Feature 3 expects just the email address to:
+1. Extract the alias name from the email
+2. Find the base identity
+3. Create the new identity with correct email
+
+### Solution
+Extract just the email address when setting `usedAlias` in Feature 1 (line 301):
+
+```javascript
+// Extract just the email for Feature 3 (matchedAlias might be "Name" <email@domain.com>)
+usedAlias = extractEmail(matchedAlias);
+```
+
+This way:
+- The From field gets the full string with display name (correct!)
+- The `usedAlias` variable contains just the email for Feature 3 (correct!)
+
+Added comprehensive logging to Feature 3 to debug identity creation flow.
+
+**Status**: ✅ Fixed and tested - Identities now created
+
+---
+
+## Issue #8: Confusing Wording in Alias Prompt
+
+### Problem
+User reported: Checkbox says "Don't ask again for this recipient" but it should refer to the sender address, not the recipient.
+
+### Solution
+1. Removed the "To:" field display (not needed in this context)
+2. Changed checkbox text from "Don't ask again for this recipient" to "Don't ask again when using this sender address"
+3. Updated [popup/alias-prompt.html](popup/alias-prompt.html) lines 96-109
+
+**Status**: ✅ Fixed and tested - Wording improved
+
+---
+
+## Issue #9: Identity Name Format Preference
+
+### Problem
+User reported: When creating a new identity, the suggested name is "Name (shopping)" but user prefers just "Name".
+
+### User Request
+Offer two options in the identity creation popup:
+- Option 1 (default/preferred): Keep original name ("Name")
+- Option 2: Add alias in parentheses ("Name (shopping)")
+
+### Solution
+Redesigned the identity creation popup to show two options:
+
+1. **Updated [popup/identity-prompt.html](popup/identity-prompt.html)**:
+   - Option 1 (preferred): Editable text input with user's original name
+   - Option 2: Read-only text input showing "Name (alias)" format
+   - Each option has its own "Use this" button
+   - Layout: Two rows, each with label, input field, and button
+
+2. **Updated [popup/identity-prompt.js](popup/identity-prompt.js)**:
+   - Populate Option 1 with base name (editable)
+   - Populate Option 2 with "Name (alias)" format (read-only)
+   - Focus and select text in Option 1 input for easy editing
+   - Handle Enter key on Option 1 input
+   - Validate that Option 1 is not empty before creating identity
+
+3. **Updated [background.js](background.js)**:
+   - Changed URL parameter from `suggestedName` to `baseName` (line 176)
+   - Reduced popup height from 350px to 300px
+
+**Status**: ✅ Fixed and tested - User can now edit identity name
 
 ---
 
@@ -339,6 +440,13 @@ After reloading the extension:
    - `messenger.runtime.onMessage` to receive responses from popups
    - Promise-based pattern to make async dialogs work like sync ones
 
+6. **Background Script Lifecycle**: Background scripts in Manifest V3 can be stopped when idle and restarted when needed
+   - This is **normal and expected behavior** for event-driven extensions
+   - The script will show "stopped" status when idle
+   - It automatically restarts when events fire (e.g., `onComposeStateChanged`)
+   - State is preserved in `messenger.storage.local`
+   - No action needed - this is how modern extensions conserve resources
+
 ### Debugging Tips
 
 1. Add comprehensive logging at every step
@@ -350,16 +458,33 @@ After reloading the extension:
 
 ## Extension Status
 
-**Current State**: All three features implemented and debugged
-- ✅ Feature 1: Auto-reply with alias detection
-- ✅ Feature 2: Alias suggestion prompts
-- ✅ Feature 3: Auto-create identities
+**Current State**: ✅ **All three features fully working and tested!**
 
-**Next Steps**:
-1. User testing of all three features
-2. Replace native `prompt()` dialogs with proper UI (future enhancement)
-3. Create actual icon files (currently placeholders)
-4. Add LICENSE file
+- ✅ **Feature 1: Auto-reply with alias detection** - Working perfectly
+  - Detects aliases in original recipients
+  - Sets From field automatically when replying
+  - Preserves display names
+
+- ✅ **Feature 2: Alias suggestion prompts** - Working perfectly
+  - Popup dialog appears when composing from base address
+  - User-friendly UI with clear options
+  - Per-account configuration
+
+- ✅ **Feature 3: Auto-create identities** - Working perfectly
+  - Offers to save new aliases as identities
+  - Two naming options: editable "Name" or "Name (alias)"
+  - Copies settings from base identity
+
+**Completed Improvements**:
+1. ✅ Replaced native `prompt()` dialogs with proper popup windows
+2. ✅ Fixed all Thunderbird API issues
+3. ✅ Added comprehensive error logging
+4. ✅ Improved UX with editable identity names
+
+**Future Enhancements** (optional):
+1. Create actual icon files (currently placeholders)
+2. Add LICENSE file
+3. Consider publishing to Thunderbird Add-ons
 
 ---
 
