@@ -6,7 +6,8 @@ let settings = {
   promptForAlias: {},
   dontAskAgain: {},
   offerIdentityCreation: true,
-  skipIdentityCreation: []
+  skipIdentityCreation: [],
+  debugLogging: false
 };
 
 let identities = [];
@@ -34,13 +35,15 @@ async function loadSettings() {
       'promptForAlias',
       'dontAskAgain',
       'offerIdentityCreation',
-      'skipIdentityCreation'
+      'skipIdentityCreation',
+      'debugLogging'
     ]);
 
     if (stored.promptForAlias) settings.promptForAlias = stored.promptForAlias;
     if (stored.dontAskAgain) settings.dontAskAgain = stored.dontAskAgain;
     if (stored.offerIdentityCreation !== undefined) settings.offerIdentityCreation = stored.offerIdentityCreation;
     if (stored.skipIdentityCreation) settings.skipIdentityCreation = stored.skipIdentityCreation;
+    if (stored.debugLogging !== undefined) settings.debugLogging = stored.debugLogging;
 
     console.log('Loaded settings:', settings);
   } catch (error) {
@@ -58,7 +61,8 @@ async function saveSettings() {
       promptForAlias: settings.promptForAlias,
       dontAskAgain: settings.dontAskAgain,
       offerIdentityCreation: settings.offerIdentityCreation,
-      skipIdentityCreation: settings.skipIdentityCreation
+      skipIdentityCreation: settings.skipIdentityCreation,
+      debugLogging: settings.debugLogging
     });
 
     console.log('Settings saved:', settings);
@@ -221,6 +225,14 @@ async function initialize() {
   checkbox.checked = settings.offerIdentityCreation;
   checkbox.addEventListener('change', (e) => {
     settings.offerIdentityCreation = e.target.checked;
+    saveSettings();
+  });
+
+  // Set up Debug logging checkbox
+  const debugCheckbox = document.getElementById('debugLogging');
+  debugCheckbox.checked = settings.debugLogging;
+  debugCheckbox.addEventListener('change', (e) => {
+    settings.debugLogging = e.target.checked;
     saveSettings();
   });
 

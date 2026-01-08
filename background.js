@@ -9,7 +9,8 @@ let settings = {
   promptForAlias: {},        // Per-account: { "user@domain.com": true/false }
   dontAskAgain: {},          // Per-account: { "user@domain.com": ["recipient@example.com"] }
   offerIdentityCreation: true, // Global setting
-  skipIdentityCreation: []   // Array of aliases to skip: ["user+temp@domain.com"]
+  skipIdentityCreation: [],  // Array of aliases to skip: ["user+temp@domain.com"]
+  debugLogging: false        // Enable debug console logging (default: false)
 };
 
 // Track which compose windows we've already processed (to avoid duplicate handling)
@@ -39,7 +40,7 @@ messenger.runtime.onMessage.addListener((message, sender) => {
  * Initialize extension
  */
 async function initialize() {
-  console.log('Send As Alias: Initializing...');
+  infoLog('Send As Alias: Initializing...');
 
   // Load settings from storage
   await loadSettings();
@@ -47,7 +48,7 @@ async function initialize() {
   // Load base email addresses from configured identities
   await loadBaseEmails();
 
-  console.log('Send As Alias: Initialized with base emails:', baseEmails);
+  infoLog('Send As Alias: Initialized with base emails:', baseEmails);
 }
 
 /**
@@ -59,18 +60,43 @@ async function loadSettings() {
       'promptForAlias',
       'dontAskAgain',
       'offerIdentityCreation',
-      'skipIdentityCreation'
+      'skipIdentityCreation',
+      'debugLogging'
     ]);
 
     if (stored.promptForAlias) settings.promptForAlias = stored.promptForAlias;
     if (stored.dontAskAgain) settings.dontAskAgain = stored.dontAskAgain;
     if (stored.offerIdentityCreation !== undefined) settings.offerIdentityCreation = stored.offerIdentityCreation;
     if (stored.skipIdentityCreation) settings.skipIdentityCreation = stored.skipIdentityCreation;
+    if (stored.debugLogging !== undefined) settings.debugLogging = stored.debugLogging;
 
-    console.log('Send As Alias: Settings loaded:', settings);
+    debugLog('Send As Alias: Settings loaded:', settings);
   } catch (error) {
-    console.error('Send As Alias: Error loading settings:', error);
+    errorLog('Send As Alias: Error loading settings:', error);
   }
+}
+
+/**
+ * Conditional debug logging - only logs if debug mode is enabled
+ */
+function debugLog(...args) {
+  if (settings.debugLogging) {
+    console.log(...args);
+  }
+}
+
+/**
+ * Info-level logging - always logs (for important events)
+ */
+function infoLog(...args) {
+  console.log(...args);
+}
+
+/**
+ * Error logging - always logs
+ */
+function errorLog(...args) {
+  console.error(...args);
 }
 
 /**
@@ -80,9 +106,9 @@ async function loadBaseEmails() {
   try {
     const identities = await messenger.identities.list();
     baseEmails = identities.map(identity => identity.email);
-    console.log('Send As Alias: Loaded base emails:', baseEmails);
+    debugLog('Send As Alias: Loaded base emails:', baseEmails);
   } catch (error) {
-    console.error('Send As Alias: Error loading identities:', error);
+    errorLog('Send As Alias: Error loading identities:', error);
   }
 }
 
@@ -132,7 +158,7 @@ function findMatchingAlias(recipients, baseEmails) {
 
       // Check if base matches any configured identity
       if (baseEmails.includes(baseEmail)) {
-        console.log(`Send As Alias: Found matching alias: ${email} (base: ${baseEmail})`);
+        debugLog(`Send As Alias: Found matching alias: ${email} (base: ${baseEmail})`);
         // IMPORTANT: Return the FULL recipient string (preserves display name if present)
         // e.g., "Name" <user+alias@domain.com> or just user+alias@domain.com
         return recipient;
@@ -187,22 +213,22 @@ async function showCreateIdentityPrompt(options) {
  * FEATURE 3: Maybe create identity for new alias
  */
 async function maybeCreateIdentity(aliasEmail, baseEmail) {
-  console.log(`Send As Alias: maybeCreateIdentity called with aliasEmail: ${aliasEmail}, baseEmail: ${baseEmail}`);
+  debugLog(`Send As Alias: maybeCreateIdentity called with aliasEmail: ${aliasEmail}, baseEmail: ${baseEmail}`);
 
   try {
     // Check if this alias already exists as an identity
     const allIdentities = await messenger.identities.list();
-    console.log(`Send As Alias: Loaded ${allIdentities.length} identities`);
+    debugLog(`Send As Alias: Loaded ${allIdentities.length} identities`);
     const exists = allIdentities.some(id => id.email.toLowerCase() === aliasEmail.toLowerCase());
 
     if (exists) {
-      console.log(`Send As Alias: Identity already exists for ${aliasEmail}`);
+      debugLog(`Send As Alias: Identity already exists for ${aliasEmail}`);
       return;
     }
 
     // Check if we should skip this alias
     if (settings.skipIdentityCreation.includes(aliasEmail)) {
-      console.log(`Send As Alias: Skipping identity creation for ${aliasEmail} (user preference)`);
+      debugLog(`Send As Alias: Skipping identity creation for ${aliasEmail} (user preference)`);
       return;
     }
 
@@ -210,17 +236,17 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
     const baseIdentity = allIdentities.find(id => id.email.toLowerCase() === baseEmail.toLowerCase());
 
     if (!baseIdentity) {
-      console.warn(`Send As Alias: Can't find base identity for ${baseEmail}`);
+      errorLog(`Send As Alias: Can't find base identity for ${baseEmail}`);
       return;
     }
 
-    console.log(`Send As Alias: Found base identity: ${baseIdentity.name} <${baseIdentity.email}>`);
+    debugLog(`Send As Alias: Found base identity: ${baseIdentity.name} <${baseIdentity.email}>`);
 
     // Extract alias name from email
     const aliasName = aliasEmail.split('+')[1].split('@')[0];
     const suggestedName = `${baseIdentity.name} (${aliasName})`;
 
-    console.log(`Send As Alias: Prompting to create identity: ${suggestedName}`);
+    debugLog(`Send As Alias: Prompting to create identity: ${suggestedName}`);
 
     // Prompt user
     const result = await showCreateIdentityPrompt({
@@ -229,7 +255,7 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
       baseName: baseIdentity.name
     });
 
-    console.log(`Send As Alias: Identity prompt result:`, result);
+    debugLog(`Send As Alias: Identity prompt result:`, result);
 
     if (result.create) {
       // Create new identity
@@ -241,7 +267,7 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
         signature: baseIdentity.signature || ''
       });
 
-      console.log(`Send As Alias: Created new identity: ${result.identityName} <${aliasEmail}>`);
+      infoLog(`Send As Alias: Created new identity: ${result.identityName} <${aliasEmail}>`);
 
       // Reload base emails to include the new identity
       await loadBaseEmails();
@@ -251,10 +277,10 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
       // Remember not to ask for this alias
       settings.skipIdentityCreation.push(aliasEmail);
       await messenger.storage.local.set({ skipIdentityCreation: settings.skipIdentityCreation });
-      console.log(`Send As Alias: Added ${aliasEmail} to skip list`);
+      debugLog(`Send As Alias: Added ${aliasEmail} to skip list`);
     }
   } catch (error) {
-    console.error(`Send As Alias: Error creating identity for ${aliasEmail}:`, error);
+    errorLog(`Send As Alias: Error creating identity for ${aliasEmail}:`, error);
   }
 }
 
@@ -263,82 +289,82 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
  */
 async function handleCompose(tab, composeDetails) {
   try {
-    console.log('Send As Alias: ===== Handling compose event =====');
-    console.log('Send As Alias: From:', composeDetails.from);
-    console.log('Send As Alias: To:', composeDetails.to);
-    console.log('Send As Alias: relatedMessageId:', composeDetails.relatedMessageId);
-    console.log('Send As Alias: Base emails:', baseEmails);
-    console.log('Send As Alias: Settings:', settings);
+    debugLog('Send As Alias: ===== Handling compose event =====');
+    debugLog('Send As Alias: From:', composeDetails.from);
+    debugLog('Send As Alias: To:', composeDetails.to);
+    debugLog('Send As Alias: relatedMessageId:', composeDetails.relatedMessageId);
+    debugLog('Send As Alias: Base emails:', baseEmails);
+    debugLog('Send As Alias: Settings:', settings);
 
     const fromEmail = extractEmail(composeDetails.from);
-    console.log('Send As Alias: Extracted from email:', fromEmail);
+    debugLog('Send As Alias: Extracted from email:', fromEmail);
 
     let aliasWasSet = false;
     let usedAlias = null;
 
     // FEATURE 1: Auto-detect alias for replies/forwards
     if (composeDetails.relatedMessageId) {
-      console.log('Send As Alias: Detected reply/forward, checking for alias...');
+      debugLog('Send As Alias: Detected reply/forward, checking for alias...');
 
       try {
         // Get original message with full headers
         const fullMessage = await messenger.messages.getFull(composeDetails.relatedMessageId);
-        console.log('Send As Alias: Full message:', fullMessage);
-        console.log('Send As Alias: Headers:', fullMessage.headers);
+        debugLog('Send As Alias: Full message:', fullMessage);
+        debugLog('Send As Alias: Headers:', fullMessage.headers);
 
         // Extract recipients from headers
         const toHeader = fullMessage.headers.to || [];
         const ccHeader = fullMessage.headers.cc || [];
-        console.log('Send As Alias: To header:', toHeader);
-        console.log('Send As Alias: CC header:', ccHeader);
+        debugLog('Send As Alias: To header:', toHeader);
+        debugLog('Send As Alias: CC header:', ccHeader);
 
         const recipients = [
           ...toHeader,
           ...ccHeader
         ];
-        console.log('Send As Alias: Recipients to check:', recipients);
+        debugLog('Send As Alias: Recipients to check:', recipients);
 
         // Try to find matching alias
         const matchedAlias = findMatchingAlias(recipients, baseEmails);
-        console.log('Send As Alias: Matched alias:', matchedAlias);
+        debugLog('Send As Alias: Matched alias:', matchedAlias);
 
         if (matchedAlias) {
           await messenger.compose.setComposeDetails(tab.id, { from: matchedAlias });
-          console.log(`Send As Alias: Feature 1 - Set From to ${matchedAlias}`);
+          debugLog(`Send As Alias: Feature 1 - Set From to ${matchedAlias}`);
           aliasWasSet = true;
           // Extract just the email for Feature 3 (matchedAlias might be "Name" <email@domain.com>)
           usedAlias = extractEmail(matchedAlias);
         } else {
-          console.log('Send As Alias: Feature 1 - No matching alias found');
+          debugLog('Send As Alias: Feature 1 - No matching alias found');
         }
       } catch (error) {
-        console.error('Send As Alias: Error in Feature 1:', error);
+        errorLog('Send As Alias: Error in Feature 1:', error);
       }
     }
 
     // FEATURE 2: Prompt for alias if not already set
-    console.log(`Send As Alias: Feature 2 check - aliasWasSet: ${aliasWasSet}, fromEmail: ${fromEmail}`);
-    console.log(`Send As Alias: Feature 2 - promptForAlias settings:`, settings.promptForAlias);
-    console.log(`Send As Alias: Feature 2 - enabled for ${fromEmail}?`, settings.promptForAlias[fromEmail]);
+    debugLog(`Send As Alias: Feature 2 check - aliasWasSet: ${aliasWasSet}, fromEmail: ${fromEmail}`);
+    debugLog(`Send As Alias: Feature 2 - promptForAlias settings:`, settings.promptForAlias);
+    debugLog(`Send As Alias: Feature 2 - enabled for ${fromEmail}?`, settings.promptForAlias[fromEmail]);
 
     if (!aliasWasSet && settings.promptForAlias[fromEmail]) {
-      console.log('Send As Alias: Feature 2 enabled for this account, checking...');
+      debugLog('Send As Alias: Feature 2 enabled for this account, checking...');
 
       // Check if from is a base address (no + sign)
-      console.log(`Send As Alias: Feature 2 - fromEmail includes +? ${fromEmail.includes('+')}`);
-      console.log(`Send As Alias: Feature 2 - baseEmails includes fromEmail? ${baseEmails.includes(fromEmail)}`);
+      debugLog(`Send As Alias: Feature 2 - fromEmail includes +? ${fromEmail.includes('+')}`);
+      debugLog(`Send As Alias: Feature 2 - baseEmails includes fromEmail? ${baseEmails.includes(fromEmail)}`);
 
       if (!fromEmail.includes('+') && baseEmails.includes(fromEmail)) {
         // Get recipient for "don't ask again" check
         const toEmail = extractEmail(composeDetails.to && composeDetails.to[0]);
-        console.log(`Send As Alias: Feature 2 - toEmail: ${toEmail}`);
+        debugLog(`Send As Alias: Feature 2 - toEmail: ${toEmail}`);
 
         // Check if we should skip this recipient
         const dontAskList = settings.dontAskAgain[fromEmail] || [];
-        console.log(`Send As Alias: Feature 2 - dontAskAgain list for ${fromEmail}:`, dontAskList);
+        debugLog(`Send As Alias: Feature 2 - dontAskAgain list for ${fromEmail}:`, dontAskList);
 
         if (toEmail && !settings.dontAskAgain[fromEmail]?.includes(toEmail)) {
-          console.log(`Send As Alias: Prompting for alias...`);
+          debugLog(`Send As Alias: Prompting for alias...`);
 
           try {
             const result = await showAliasPrompt(fromEmail, toEmail);
@@ -346,7 +372,7 @@ async function handleCompose(tab, composeDetails) {
             if (result.useAlias && result.aliasName) {
               const alias = `${fromEmail.split('@')[0]}+${result.aliasName}@${fromEmail.split('@')[1]}`;
               await messenger.compose.setComposeDetails(tab.id, { from: alias });
-              console.log(`Send As Alias: Set From to ${alias}`);
+              debugLog(`Send As Alias: Set From to ${alias}`);
               usedAlias = alias;
             } else if (result.dontAskAgain) {
               // Save to dontAskAgain list for this account
@@ -355,43 +381,43 @@ async function handleCompose(tab, composeDetails) {
               }
               settings.dontAskAgain[fromEmail].push(toEmail);
               await messenger.storage.local.set({ dontAskAgain: settings.dontAskAgain });
-              console.log(`Send As Alias: Added ${toEmail} to don't ask list for ${fromEmail}`);
+              debugLog(`Send As Alias: Added ${toEmail} to don't ask list for ${fromEmail}`);
             }
           } catch (error) {
-            console.error('Send As Alias: Error in Feature 2:', error);
+            errorLog('Send As Alias: Error in Feature 2:', error);
           }
         } else {
-          console.log(`Send As Alias: Feature 2 - Skipping (toEmail in don't ask list or toEmail is empty)`);
+          debugLog(`Send As Alias: Feature 2 - Skipping (toEmail in don't ask list or toEmail is empty)`);
         }
       } else {
-        console.log(`Send As Alias: Feature 2 - Skipping (from has + sign or not in base emails)`);
+        debugLog(`Send As Alias: Feature 2 - Skipping (from has + sign or not in base emails)`);
       }
     } else {
-      console.log(`Send As Alias: Feature 2 - Skipping (alias was already set or not enabled for this account)`);
+      debugLog(`Send As Alias: Feature 2 - Skipping (alias was already set or not enabled for this account)`);
     }
 
     // FEATURE 3: Offer to create identity for new alias
-    console.log(`Send As Alias: Feature 3 check - usedAlias: ${usedAlias}, offerIdentityCreation: ${settings.offerIdentityCreation}`);
+    debugLog(`Send As Alias: Feature 3 check - usedAlias: ${usedAlias}, offerIdentityCreation: ${settings.offerIdentityCreation}`);
 
     if (usedAlias && settings.offerIdentityCreation) {
-      console.log('Send As Alias: Feature 3 enabled, checking if identity exists...');
+      debugLog('Send As Alias: Feature 3 enabled, checking if identity exists...');
 
       try {
         // Extract base email from the alias
         const [localPart, domain] = usedAlias.split('@');
         const baseLocal = localPart.split('+')[0];
         const baseEmail = `${baseLocal}@${domain}`;
-        console.log(`Send As Alias: Feature 3 - usedAlias: ${usedAlias}, baseEmail: ${baseEmail}`);
+        debugLog(`Send As Alias: Feature 3 - usedAlias: ${usedAlias}, baseEmail: ${baseEmail}`);
 
         await maybeCreateIdentity(usedAlias, baseEmail);
       } catch (error) {
-        console.error('Send As Alias: Error in Feature 3:', error);
+        errorLog('Send As Alias: Error in Feature 3:', error);
       }
     } else {
-      console.log('Send As Alias: Feature 3 - Skipping (no alias used or feature disabled)');
+      debugLog('Send As Alias: Feature 3 - Skipping (no alias used or feature disabled)');
     }
   } catch (error) {
-    console.error('Send As Alias: Error in handleCompose:', error);
+    errorLog('Send As Alias: Error in handleCompose:', error);
   }
 }
 
@@ -401,72 +427,72 @@ async function handleCompose(tab, composeDetails) {
  * We track processed tabs to only handle each window once when it opens
  */
 messenger.compose.onComposeStateChanged.addListener(async (tab, state) => {
-  console.log('Send As Alias: Compose state changed, tab:', tab.id, 'state:', state);
+  debugLog('Send As Alias: Compose state changed, tab:', tab.id, 'state:', state);
 
   // Only process each compose window once
   if (processedComposeTabs.has(tab.id)) {
-    console.log('Send As Alias: Already processed this compose window');
+    debugLog('Send As Alias: Already processed this compose window');
     return;
   }
 
   // Ensure the compose window has loaded (when send options become available)
   if (!state.canSendNow && !state.canSendLater) {
-    console.log('Send As Alias: Compose window not yet ready (send options unavailable)');
+    debugLog('Send As Alias: Compose window not yet ready (send options unavailable)');
     return;
   }
 
   // Mark this tab as processed
   processedComposeTabs.add(tab.id);
-  console.log('Send As Alias: Processing compose window for first time');
+  debugLog('Send As Alias: Processing compose window for first time');
 
   try {
     // Ensure state is loaded (in case background script was restarted)
     if (baseEmails.length === 0) {
-      console.log('Send As Alias: State not loaded, reinitializing...');
+      debugLog('Send As Alias: State not loaded, reinitializing...');
       await initialize();
     }
 
     // Get current compose details
     const composeDetails = await messenger.compose.getComposeDetails(tab.id);
-    console.log('Send As Alias: Compose details:', composeDetails);
+    debugLog('Send As Alias: Compose details:', composeDetails);
 
     // Handle compose (same logic as before, now with tab object)
     await handleCompose(tab, composeDetails);
 
-    console.log('Send As Alias: Compose window intercepted and processed');
+    debugLog('Send As Alias: Compose window intercepted and processed');
   } catch (error) {
-    console.error('Send As Alias: Error in onComposeStateChanged:', error);
+    errorLog('Send As Alias: Error in onComposeStateChanged:', error);
   }
 });
 
 // Listen for settings changes
 messenger.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'local') {
-    console.log('Send As Alias: Settings changed:', changes);
+    debugLog('Send As Alias: Settings changed:', changes);
     loadSettings();
   }
 });
 
 // Listen for identity changes (when user adds/removes identities)
-messenger.identities.onCreated.addListener((id, identity) => {
-  console.log('Send As Alias: Identity created:', identity.email);
+messenger.identities.onCreated.addListener((_id, identity) => {
+  infoLog('Send As Alias: Identity created:', identity.email);
   loadBaseEmails();
 });
 
-messenger.identities.onUpdated.addListener((id, changed) => {
-  console.log('Send As Alias: Identity updated:', id);
+messenger.identities.onUpdated.addListener((_id, _changed) => {
+  debugLog('Send As Alias: Identity updated');
   loadBaseEmails();
 });
 
-messenger.identities.onDeleted.addListener((id) => {
-  console.log('Send As Alias: Identity deleted:', id);
+messenger.identities.onDeleted.addListener((_id) => {
+  debugLog('Send As Alias: Identity deleted');
   loadBaseEmails();
 });
 
 // Initialize when extension loads
-console.log('Send As Alias: Background script starting...');
+infoLog('Send As Alias: Background script starting...');
 initialize().then(() => {
-  console.log('Send As Alias: Background script fully initialized');
+  infoLog('Send As Alias: Background script fully initialized');
 }).catch(error => {
-  console.error('Send As Alias: Initialization error:', error);
+  errorLog('Send As Alias: Initialization error:', error);
 });

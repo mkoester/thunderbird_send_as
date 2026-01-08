@@ -37,6 +37,7 @@ Build a Thunderbird extension with three features:
   - ✅ Test Feature 2 (alias suggestion) scenarios - Working perfectly!
   - ✅ Test Feature 3 (identity creation) scenarios - Working perfectly!
   - ✅ Add error handling - Comprehensive logging added
+  - ✅ Add optional debug logging toggle - Clean console by default
   - [ ] Create icon files (currently placeholders) - Future enhancement
 
 ## Key Questions
@@ -255,10 +256,31 @@ Build a Thunderbird extension with three features:
 
 **Status**: ✅ Fixed and tested - User can edit identity name
 
+### Enhancement 1: Optional Debug Logging
+**Date**: 2026-01-08
+
+**Request**: User wanted to reduce console clutter - most debug messages aren't needed in normal use.
+
+**Solution**: Implemented configurable debug logging system
+- Added `debugLogging` setting (default: false)
+- Created three logging levels:
+  - `debugLog()` - only when enabled
+  - `infoLog()` - always (startup, important events)
+  - `errorLog()` - always (all errors)
+- Added "Debug Settings" section in options UI
+- Replaced ~60 console.log calls with appropriate helper functions
+
+**Files Modified**:
+- `background.js` - Added logging helpers and refactored all logging calls
+- `options/options.html` - Added debug settings section
+- `options/options.js` - Added debug checkbox handler
+
+**Status**: ✅ Implemented and tested - Working perfectly!
+
 ## Status
 **Phase 4 COMPLETE** ✅ - All 3 features fully working and tested!
 - Feature 1: Auto-reply with alias detection ✅
 - Feature 2: Alias suggestion prompts ✅
 - Feature 3: Auto-create identities ✅
 
-All 9 bugs fixed and tested. Extension ready for production use!
+All 9 bugs fixed, 1 enhancement added. Extension ready for production use!

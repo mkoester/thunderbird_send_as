@@ -374,6 +374,78 @@ Redesigned the identity creation popup to show two options:
 
 ---
 
+## Enhancement: Optional Debug Logging
+
+### Date Added: 2026-01-08
+
+### Motivation
+After fixing all bugs, the console was filled with debug messages that were helpful during development but unnecessary for normal use. Most messages are debug-level information that users don't need to see.
+
+### Solution
+Implemented a configurable debug logging system with three levels:
+
+1. **Debug logs** (optional, default: OFF):
+   - All compose event details
+   - Feature 1, 2, 3 checking logic
+   - Recipient parsing
+   - Settings checks
+   - Tab processing status
+   - Identity lookup details
+
+2. **Info logs** (always shown):
+   - Extension initialization
+   - Base emails loaded
+   - Identity created (user action)
+
+3. **Error logs** (always shown):
+   - All error cases
+   - Initialization failures
+   - Feature errors
+
+### Implementation
+
+**Files Modified:**
+
+1. **[background.js](background.js)**:
+   - Added `debugLogging: false` to settings (line 13)
+   - Created helper functions (lines 82-100):
+     - `debugLog()` - conditional logging
+     - `infoLog()` - always logs
+     - `errorLog()` - always logs
+   - Replaced ~60 `console.log()` calls with appropriate helper functions
+   - Kept important messages as `infoLog()` or `errorLog()`
+
+2. **[options/options.html](options/options.html:218-235)**:
+   - Added "Debug Settings" section
+   - Checkbox to enable/disable debug logging
+   - Help text explaining usage
+
+3. **[options/options.js](options/options.js)**:
+   - Added `debugLogging: false` to settings object (line 10)
+   - Updated `loadSettings()` to load debug preference (lines 38-39, 45)
+   - Updated `saveSettings()` to save debug preference (line 62)
+   - Added event handler for debug checkbox (lines 228-233)
+
+### Benefits
+
+✅ **Clean console by default** - Only startup and error messages
+✅ **Detailed debugging available** - Toggle on when needed
+✅ **Easy to control** - Simple checkbox in extension settings
+✅ **No performance impact** - Function calls are lightweight
+✅ **Important events never missed** - Errors and key actions always logged
+
+### Usage
+
+1. Open extension settings (Add-ons Manager → Send As Alias → Preferences)
+2. Scroll to "Debug Settings" section
+3. Check "Enable debug logging to console"
+4. Open Browser Console (Ctrl+Shift+J) to see detailed debug output
+5. Uncheck to return to clean console output
+
+**Status**: ✅ Implemented and tested - Working perfectly!
+
+---
+
 ## Summary of All Fixes
 
 ### Files Modified
@@ -480,6 +552,7 @@ After reloading the extension:
 2. ✅ Fixed all Thunderbird API issues
 3. ✅ Added comprehensive error logging
 4. ✅ Improved UX with editable identity names
+5. ✅ Added optional debug logging toggle (default: off)
 
 **Future Enhancements** (optional):
 1. Create actual icon files (currently placeholders)
