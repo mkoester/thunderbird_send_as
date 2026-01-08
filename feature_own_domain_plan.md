@@ -116,7 +116,7 @@ See `feature_own_domain_notes.md` for detailed UI mockup.
 (None yet)
 
 ## Status
-**Phase 3 IN PROGRESS** 🔄 - Settings UI complete, ready for testing
+**Phase 3 COMPLETE** ✅ - Implementation finished, tested, and working
 
 **Completed in Phase 3:**
 1. ✅ Updated storage structure (accountSettings)
@@ -126,8 +126,35 @@ See `feature_own_domain_notes.md` for detailed UI mockup.
 5. ✅ Feature 1 disabled by default (opt-in)
 6. ✅ Feature 2 depends on Feature 1 (disabled when Feature 1 is off)
 7. ✅ Settings preserved when features are disabled (only UI interaction disabled)
+8. ✅ Added helper functions: extractDomain(), extractBase(), matchesBase()
+9. ✅ Updated findMatchingAlias() to be async and method-aware
+10. ✅ Updated Feature 1 (auto-reply) to use new algorithm
+11. ✅ Updated Feature 2 (alias suggestion) to be method-aware
+12. ✅ Updated popup/alias-prompt.html with dynamic elements
+13. ✅ Updated popup/alias-prompt.js to handle all three methods
+14. ✅ Fixed critical bug: identities variable scoping issue
+15. ✅ Enhanced display name formatting for recipients without names
+16. ✅ Cleaned up excessive debug logging for production
+17. ✅ Implemented settings migration from old format (promptForAlias/dontAskAgain → accountSettings)
+18. ✅ Tested all three alias methods successfully
+19. ✅ Built XPI: send-as-alias-1.0.3-b03aea4-SNAPSHOT.xpi
 
-**Next:** Test settings page in Thunderbird, then implement algorithm changes
+**Phase 3 completed successfully!** ✅
+
+### Phase 4: Testing and Documentation ✅
+
+1. ✅ Tested all three alias methods (plus-addressing, own domain, catchall)
+2. ✅ Verified display name handling
+3. ✅ Updated README with comprehensive documentation:
+   - Added alias methods overview
+   - Updated feature descriptions with examples for all methods
+   - Enhanced configuration section with per-account settings
+   - Added detailed "How It Works" section for each method
+   - Updated troubleshooting guide
+   - Updated file structure
+4. ✅ Implementation complete and production-ready
+
+**Next:** Ready for merge to main branch
 
 ## Summary
 

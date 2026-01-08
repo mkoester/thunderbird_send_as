@@ -2,9 +2,18 @@
 const params = new URLSearchParams(window.location.search);
 const fromEmail = params.get('from');
 const toEmail = params.get('to');
+const method = params.get('method') || 'plus';
+const domain = params.get('domain');
 
 // Populate the UI
 document.getElementById('fromEmail').textContent = fromEmail;
+
+// Update UI text based on method
+if (method === 'own-domain' || method === 'catchall') {
+  document.getElementById('promptHeading').textContent = `Enter alias for @${domain}`;
+  document.getElementById('inputLabel').textContent = 'Alias name:';
+  document.getElementById('aliasInput').placeholder = 'e.g., sales, support, contact';
+}
 
 // Update example alias
 const aliasInput = document.getElementById('aliasInput');
@@ -13,8 +22,12 @@ const exampleAlias = document.getElementById('exampleAlias');
 function updateExample() {
   const value = aliasInput.value.trim();
   if (value) {
-    const [localPart, domain] = fromEmail.split('@');
-    exampleAlias.textContent = `Will use: ${localPart}+${value}@${domain}`;
+    if (method === 'plus') {
+      const [localPart, domainPart] = fromEmail.split('@');
+      exampleAlias.textContent = `Will use: ${localPart}+${value}@${domainPart}`;
+    } else if (method === 'own-domain' || method === 'catchall') {
+      exampleAlias.textContent = `Will use: ${value}@${domain}`;
+    }
   } else {
     exampleAlias.textContent = 'Leave empty to continue with base address';
   }
