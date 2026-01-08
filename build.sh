@@ -71,8 +71,27 @@ OUTPUT_FILE="../send-as-alias-${VERSION}.xpi"
 
 echo "Building Send As Alias v${VERSION}..."
 
-# Create XPI file
-zip -r "$OUTPUT_FILE" \
+# Create temporary directory
+TEMP_DIR=$(mktemp -d -t send-as-alias-build.XXXXXXXXXX)
+trap "rm -rf '$TEMP_DIR'" EXIT
+
+echo "Using temporary directory: $TEMP_DIR"
+
+# Copy all necessary files to temp directory
+cp manifest.json "$TEMP_DIR/"
+cp background.js "$TEMP_DIR/"
+cp -r icons/ "$TEMP_DIR/"
+cp -r options/ "$TEMP_DIR/"
+cp -r popup/ "$TEMP_DIR/"
+
+# Update version in manifest.json inside temp directory
+sed -i "s/\"version\":\\s*\"[^\"]*\"/\"version\": \"$VERSION\"/" "$TEMP_DIR/manifest.json"
+
+echo "Updated manifest.json version to: $VERSION"
+
+# Create XPI file from temp directory
+cd "$TEMP_DIR"
+zip -r "$SCRIPT_DIR/$OUTPUT_FILE" \
     manifest.json \
     background.js \
     icons/ \
