@@ -61,6 +61,28 @@ The build script:
 - Version bumps happen in `manifest.json`
 - Build script automatically handles dev/snapshot versioning
 
+### Branch Naming Convention (Git Flow)
+Follow git flow conventions for branch naming:
+
+- **Feature branches**: `feature/description`
+  - Example: `feature/add-dark-mode`, `feature/reply-to-all`
+  - For new features and enhancements
+
+- **Bugfix branches**: `bugfix/description`
+  - Example: `bugfix/identity-creation-error`, `bugfix/alias-parsing`
+  - For fixing bugs in development
+
+- **Hotfix branches**: `hotfix/description`
+  - Example: `hotfix/critical-crash`, `hotfix/security-fix`
+  - For urgent fixes to production/main branch
+
+- **Release branches**: `release/version`
+  - Example: `release/1.0.3`, `release/2.0.0`
+  - For preparing releases
+
+- **Development branch**: `develop` (optional)
+  - Integration branch for features before merging to main
+
 ## Common Tasks
 
 ### Creating a Release Build
