@@ -1,35 +1,49 @@
 # Send As Alias - Thunderbird Extension
 
-Automatically manage email aliases for plus-addressing (e.g., `user+alias@domain.com`).
+Automatically manage email aliases with support for multiple alias methods:
+- **Plus-addressing**: `user+alias@domain.com` (Gmail, Posteo, etc.)
+- **Own domain**: `alias@yourdomain.com` (domains you own)
+- **Catchall**: `anything@yourdomain.com` (domains with catchall forwarding)
 
 ## Features
 
-### Feature 1: Auto-Reply with Alias ✅ Always Active
+### Feature 1: Auto-Reply with Alias 📧 Per-Account (Opt-In)
 
 Automatically sets your "From" address to match aliases when replying to or forwarding emails.
 
-**Example:**
+**Examples:**
+
+*Plus-addressing:*
 - You receive an email sent to `user+shopping@posteo.de`
-- You click Reply
-- Extension automatically sets From to `user+shopping@posteo.de`
+- You click Reply → From is set to `user+shopping@posteo.de`
+
+*Own domain:*
+- You receive an email sent to `sales@yourdomain.com`
+- You click Reply → From is set to `sales@yourdomain.com`
 
 **Works with:** Reply, Reply All, and Forward
 
-**Configuration:** None needed - just works!
+**Configuration:** Enable per account in extension settings, then select your alias method (plus-addressing, own domain, or catchall)
 
 ---
 
-### Feature 2: Alias Suggestion 📝 Optional (Per-Account)
+### Feature 2: Alias Suggestion 📝 Per-Account (Optional)
 
 Prompts you to use an alias when composing emails from your base address.
 
-**Example:**
-- You start composing a new email
-- Your From is set to `user@posteo.de` (base address)
-- Extension prompts: "Enter an alias name to use user+ALIAS@posteo.de"
+**Examples:**
+
+*Plus-addressing:*
+- You compose from `user@posteo.de`
+- Extension prompts: "Enter alias name to use user+___@posteo.de"
 - You enter "shopping" → From becomes `user+shopping@posteo.de`
 
-**Configuration:** Enable per account in extension settings
+*Own domain or catchall:*
+- You compose from `info@yourdomain.com`
+- Extension prompts: "Enter alias for @yourdomain.com"
+- You enter "sales" → From becomes `sales@yourdomain.com`
+
+**Configuration:** Enable per account in extension settings (requires Feature 1 to be enabled)
 
 **Benefits:**
 - Never accidentally expose your base address
@@ -80,36 +94,68 @@ Then install the `.xpi` file in Thunderbird.
 
 ## Configuration
 
-### Feature 2: Alias Suggestion
+### Per-Account Settings (Features 1 & 2)
 
 1. Open extension settings (Tools → Add-ons → Send As Alias → Preferences)
-2. Under "Feature 2: Alias Suggestion"
-3. Check the box next to each account where you want alias prompts
-4. Use "Manage Don't Ask Again Lists" to clear exceptions
+2. For each email account/identity:
+   - **Enable Auto-Reply**: Check to enable Feature 1
+   - **Alias Method**: Choose your alias type:
+     - **Plus-addressing**: `user+alias@domain.com` (Gmail, Posteo, etc.)
+     - **Own domain**: `alias@yourdomain.com` (for domains you own)
+     - **Own domain with catchall**: `anything@yourdomain.com` (catchall enabled)
+   - **Enable Alias Suggestion**: Check to enable Feature 2 prompts
 
-### Feature 3: Auto-Create Identity
+**Important Notes:**
+- Feature 1 must be enabled before Feature 2 can be used
+- Only ONE identity per domain can use "own domain" methods (conflict protection)
+- Settings are preserved when features are disabled
+
+### Global Settings (Feature 3)
 
 1. Open extension settings
 2. Under "Feature 3: Auto-Create Identity"
-3. Uncheck to disable the feature
+3. Uncheck to disable the feature globally
 4. View/remove aliases in the "skip list"
 
 ---
 
 ## How It Works
 
-### Plus-Addressing Pattern
+### Alias Methods
 
-The extension works with any email provider that supports plus-addressing:
-- `user+alias@domain.com`
-- Everything between `+` and `@` is the alias
-- Works with: posteo.de, gmail.com, and many others
+The extension supports three alias methods (configured per-account):
+
+#### 1. Plus-Addressing (Default)
+- **Pattern**: `user+alias@domain.com`
+- **Supported by**: Gmail, Posteo, Fastmail, and many others
+- **How it works**:
+  - Base address: `user@domain.com`
+  - Aliases: `user+shopping@domain.com`, `user+work@domain.com`, etc.
+  - Provider ignores everything between `+` and `@` for delivery
+
+#### 2. Own Domain
+- **Pattern**: `alias@yourdomain.com`
+- **Use when**: You own a domain and create specific aliases
+- **How it works**:
+  - You manually create aliases at your email provider (e.g., `sales@yourdomain.com`, `support@yourdomain.com`)
+  - Extension matches based on domain name
+  - Each alias must exist at your provider
+
+#### 3. Own Domain with Catchall
+- **Pattern**: `anything@yourdomain.com`
+- **Use when**: Your domain has catchall forwarding enabled
+- **How it works**:
+  - Any email to `*@yourdomain.com` reaches your mailbox
+  - Extension matches based on domain name
+  - No need to pre-create aliases
 
 ### Smart Detection
 
-1. **Extracts base addresses** from your configured Thunderbird identities
-2. **Matches aliases** by stripping the `+alias` part and comparing to base addresses
-3. **No configuration needed** for Feature 1 - uses your existing Thunderbird setup!
+1. **Loads your Thunderbird identities** to know which addresses/domains you manage
+2. **Matches aliases** based on the configured method:
+   - Plus-addressing: Strips `+alias` and compares to base
+   - Own domain: Compares domain names
+3. **Per-account configuration** lets you use different methods for different accounts
 
 ---
 
@@ -125,7 +171,8 @@ The extension works with any email provider that supports plus-addressing:
 ## Requirements
 
 - Thunderbird 128.0+ (Manifest V3 extensions require this minimum version)
-- Email provider that supports plus-addressing
+- For **plus-addressing**: Email provider that supports it (Gmail, Posteo, Fastmail, etc.)
+- For **own domain** methods: A domain you control (via registrar or email hosting)
 
 **Note**: Thunderbird 128.0 is the minimum version required for Manifest V3 extensions. Earlier versions (115-127) had partial MV3 support but are not compatible with add-on store requirements.
 
@@ -147,41 +194,60 @@ The extension works with any email provider that supports plus-addressing:
 
 ### Feature 1 isn't working
 
+**For plus-addressing:**
 - Check that you have the base address configured as an identity in Thunderbird
 - Example: For `user+shop@domain.com` to work, you need `user@domain.com` as an identity
+- Ensure Feature 1 is **enabled** for that account in settings
+
+**For own domain:**
+- Verify Feature 1 is enabled for the account
+- Check that the alias method is set correctly (own domain or catchall)
+- Ensure only ONE identity per domain is using own-domain methods
+- If you see a "Domain conflict" warning, disable Feature 1 for other identities with the same domain
+
+**General:**
 - Reload the extension or restart Thunderbird
+- Enable debug logging in settings and check the Browser Console (Ctrl+Shift+J)
 
 ### Feature 2 prompts aren't showing
 
-- Check that you've enabled it for the specific account in settings
-- Make sure you're composing from a base address (not an alias)
+- Check that Feature 1 is enabled (Feature 2 requires Feature 1)
+- Verify Feature 2 is enabled for the specific account in settings
+- Make sure you're composing from a base address:
+  - Plus-addressing: From address without `+` (e.g., `user@domain.com`)
+  - Own domain: From address matching your configured identity
 - Check the "Don't ask again" list isn't blocking the recipient
 
 ### Feature 3 isn't creating identities
 
-- Check that the feature is enabled in settings
+- Check that the feature is enabled in global settings
 - Verify the alias isn't in the "skip list"
-- Check Thunderbird's error console for errors
+- Check Thunderbird's error console (Ctrl+Shift+J) for errors
 
 ---
 
 ## Development
 
-See [DESIGN.md](DESIGN.md) for technical specification and implementation details.
+See [DESIGN_OWN_DOMAIN.md](DESIGN_OWN_DOMAIN.md) for technical specification and implementation details.
 
 ### File Structure
 
 ```
 thunderbird_send_as/
-├── manifest.json           # Extension metadata
-├── background.js           # Main extension logic
+├── manifest.json              # Extension metadata
+├── background.js              # Main extension logic
 ├── options/
-│   ├── options.html        # Settings UI
-│   └── options.js          # Settings logic
-├── icons/                  # Extension icons
-├── README.md              # This file
-├── DESIGN.md              # Technical specification
-└── FEATURES.md            # Feature descriptions
+│   ├── options.html           # Settings UI
+│   └── options.js             # Settings logic
+├── popup/
+│   ├── alias-prompt.html      # Alias suggestion popup
+│   ├── alias-prompt.js        # Alias prompt logic
+│   ├── identity-prompt.html   # Identity creation popup
+│   └── identity-prompt.js     # Identity creation logic
+├── icons/                     # Extension icons
+├── README.md                  # This file
+├── DESIGN_OWN_DOMAIN.md       # Technical specification
+└── WAYLAND.md                 # Wayland configuration guide
 ```
 
 ---
