@@ -121,16 +121,33 @@ thunderbird_send_as_alias = app_id is "thunderbird" & title contains "Send As Al
 
 ## niri Configuration
 
-Add to `~/.config/niri/config.kdl`:
+⚠️ **Known Issue**: niri only evaluates window rules at window creation time, but Thunderbird extension popups are created with the title "Mozilla Thunderbird" and only update to "Send As Alias - ..." after the HTML loads. This means title-based rules won't work.
 
+**Workaround Options:**
+
+### Option 1: Float all Thunderbird popups (Recommended)
 ```kdl
 window-rule {
-    match app-id="^thunderbird$" title="^Send As Alias - "
+    match app-id="^thunderbird$"
     default-floating true
-    default-width 550
-    default-height 300
 }
 ```
+
+This will float all Thunderbird windows. You may want to be more selective if this affects your main Thunderbird window.
+
+### Option 2: Use size-based matching (if supported in future)
+If niri adds support for size-based rules, you could use:
+```kdl
+window-rule {
+    match app-id="^thunderbird$" initial-width=550
+    default-floating true
+}
+```
+
+### Option 3: Manually float when needed
+Use niri's keybindings to manually toggle floating for the popup windows when they appear.
+
+**Note**: This is a limitation of the WebExtension API - there's no way for the extension to set window properties that Wayland compositors can read before the HTML loads.
 
 ---
 
