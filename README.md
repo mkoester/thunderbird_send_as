@@ -124,8 +124,10 @@ The extension works with any email provider that supports plus-addressing:
 
 ## Requirements
 
-- Thunderbird 115+ (Manifest V3 support)
+- Thunderbird 128.0+ (Manifest V3 extensions require this minimum version)
 - Email provider that supports plus-addressing
+
+**Note**: Thunderbird 128.0 is the minimum version required for Manifest V3 extensions. Earlier versions (115-127) had partial MV3 support but are not compatible with add-on store requirements.
 
 ---
 
@@ -190,7 +192,7 @@ Issues and pull requests welcome!
 
 ## License
 
-[Choose your license - MIT, GPL, etc.]
+GPL-3.0 - See [LICENSE](LICENSE) file for details.
 
 ---
 
