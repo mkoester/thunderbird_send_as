@@ -129,6 +129,8 @@ The extension works with any email provider that supports plus-addressing:
 
 **Note**: Thunderbird 128.0 is the minimum version required for Manifest V3 extensions. Earlier versions (115-127) had partial MV3 support but are not compatible with add-on store requirements.
 
+**Wayland Users**: If you use a tiling window manager (Sway, Mango, Hyprland, etc.), see [WAYLAND.md](WAYLAND.md) for configuration to make popups float properly.
+
 ---
 
 ## Permissions Explained
