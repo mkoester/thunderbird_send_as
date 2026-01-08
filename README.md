@@ -201,3 +201,12 @@ Inspired by:
 - [Reply As Original Recipient](https://addons.thunderbird.net/thunderbird/addon/reply-as-original-recipient/)
 
 Built with the Thunderbird WebExtension API.
+
+Icon created with https://deepai.org/machine-learning-model/text2img using this prompt:
+
+```
+I wrote a thunderbird extension for which I need icons now. I need two versions with the dimensions 48x48 pixels and 96x96 pixels.
+
+The theme of the extensions are email address aliases.
+When thinking about aliases, spies come to mind. Maybe in black/white.
+```
