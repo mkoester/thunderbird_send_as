@@ -6,6 +6,13 @@
   "author": "Mirko Köster",
   "homepage_url": "https://github.com/mkoester/thunderbird_send_as",
 
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "send-as-alias@mkoester.github.io",
+      "strict_min_version": "115.0"
+    }
+  },
+
   "permissions": [
     "accountsRead",
     "accountsIdentities",

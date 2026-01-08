@@ -277,10 +277,40 @@ Build a Thunderbird extension with three features:
 
 **Status**: ✅ Implemented and tested - Working perfectly!
 
+### Error 10: XPI Installation Failed - Missing Extension ID
+**Date**: 2026-01-08
+
+**Problem**: When trying to install the XPI file, Thunderbird showed error:
+```
+addons.xpi WARN Invalid XPI: Error: Cannot find id for addon
+```
+
+**Root Cause**: The `manifest.json` was missing the required `browser_specific_settings` section with extension ID. This is **mandatory** for Thunderbird extensions.
+
+**Solution**: Added `browser_specific_settings` to manifest.json
+```json
+"browser_specific_settings": {
+  "gecko": {
+    "id": "send-as-alias@mkoester.github.io",
+    "strict_min_version": "115.0"
+  }
+}
+```
+
+**Benefits**:
+- ✅ Provides stable extension ID that persists across updates
+- ✅ Specifies minimum Thunderbird version (115.0 for Manifest V3)
+- ✅ Enables XPI installation from file
+
+**Files Modified**:
+- `manifest.json` - Added browser_specific_settings section
+
+**Status**: ✅ Fixed - XPI now installs successfully!
+
 ## Status
 **Phase 4 COMPLETE** ✅ - All 3 features fully working and tested!
 - Feature 1: Auto-reply with alias detection ✅
 - Feature 2: Alias suggestion prompts ✅
 - Feature 3: Auto-create identities ✅
 
-All 9 bugs fixed, 1 enhancement added. Extension ready for production use!
+All 10 bugs fixed, 1 enhancement added. Extension ready for production use and distribution!

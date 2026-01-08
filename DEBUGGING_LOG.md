@@ -8,7 +8,7 @@ This document captures all debugging work done to get Features 1, 2, and 3 worki
 
 **Result**: ✅ **All 3 features fully working and tested!**
 
-**Issues Fixed**: 9 major issues resolved
+**Issues Fixed**: 10 major issues resolved
 1. Wrong event listener (`onBeforeSend` → `onComposeStateChanged`)
 2. Wrong state property check (`isComposing` → `canSendNow/canSendLater`)
 3. Empty recipients array (`messages.get()` → `messages.getFull()`)
@@ -18,6 +18,7 @@ This document captures all debugging work done to get Features 1, 2, and 3 worki
 7. Identity creation failed (fixed `usedAlias` extraction)
 8. Confusing wording (updated checkbox text)
 9. Identity name preference (made Option 1 editable)
+10. XPI installation failed (added extension ID to manifest)
 
 **Files Modified**:
 - `background.js` - Fixed APIs, event handlers, added popup support
@@ -443,6 +444,58 @@ Implemented a configurable debug logging system with three levels:
 5. Uncheck to return to clean console output
 
 **Status**: ✅ Implemented and tested - Working perfectly!
+
+---
+
+## Issue #10: XPI Installation Failed - Missing Extension ID
+
+### Date: 2026-01-08
+
+### Problem
+When attempting to install the extension from the XPI file, Thunderbird rejected it with the error:
+```
+addons.xpi WARN Invalid XPI: Error: Cannot find id for addon /home/mk/src/send-as-alias.xpi
+```
+
+The installation dialog appeared but nothing happened, and the extension was not installed.
+
+### Root Cause
+The `manifest.json` was missing the required `browser_specific_settings` section. This section is **mandatory** for Thunderbird extensions to:
+1. Provide a unique, stable extension ID
+2. Specify compatibility requirements
+3. Enable XPI installation
+
+### Solution
+Added `browser_specific_settings` section to [manifest.json](manifest.json:9-14):
+
+```json
+"browser_specific_settings": {
+  "gecko": {
+    "id": "send-as-alias@mkoester.github.io",
+    "strict_min_version": "115.0"
+  }
+}
+```
+
+### Technical Details
+
+**Extension ID Format**: `send-as-alias@mkoester.github.io`
+- Uses email-like format (standard for Mozilla extensions)
+- Domain should be controlled by the developer
+- Remains stable across all updates
+
+**Minimum Version**: `115.0`
+- Thunderbird 115+ required for Manifest V3 support
+- Earlier versions don't support the APIs used in this extension
+
+### Benefits
+
+✅ **Stable identity** - Extension ID persists across updates and reinstalls
+✅ **Version control** - Prevents installation on incompatible Thunderbird versions
+✅ **XPI packaging** - Required for distributing extension as .xpi file
+✅ **Update mechanism** - Enables proper update detection
+
+**Status**: ✅ Fixed - Extension now installs successfully from XPI file!
 
 ---
 
