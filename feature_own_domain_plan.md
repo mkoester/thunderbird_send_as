@@ -93,7 +93,7 @@ Add support for alias management beyond the plus-addressing pattern (user+alias@
 - ✅ Using planning-with-files pattern for organization
 - ✅ Multiple methods supported: **Yes, one per account**
 - ✅ Settings UI redesign: Per-account sections with:
-  - Feature 1 enable/disable checkbox (default: enabled)
+  - Feature 1 enable/disable checkbox (default: **disabled** - opt-in)
   - Alias method radio buttons (3 options)
   - Feature 2 enable/disable checkbox (default: disabled)
 - ✅ Feature 3 stays global (no changes to its settings)
@@ -102,12 +102,12 @@ Add support for alias management beyond the plus-addressing pattern (user+alias@
 See `feature_own_domain_notes.md` for detailed UI mockup.
 
 **Per-account settings:**
-1. Feature 1 checkbox (auto-reply)
-2. Alias method radio buttons:
+1. Feature 1 checkbox (auto-reply) - default: disabled
+2. Alias method radio buttons (disabled if Feature 1 is off):
    - Plus-addressing (default)
    - Own domain
    - Own domain with catchall
-3. Feature 2 checkbox (alias suggestion)
+3. Feature 2 checkbox (alias suggestion) - disabled if Feature 1 is off
 
 **Global settings:**
 - Feature 3 (identity creation) - unchanged
@@ -116,9 +116,18 @@ See `feature_own_domain_notes.md` for detailed UI mockup.
 (None yet)
 
 ## Status
-**Phase 2 COMPLETE** ✅ - Technical design finalized
+**Phase 3 IN PROGRESS** 🔄 - Settings UI complete, ready for testing
 
-**Ready for Phase 3** - Implementation
+**Completed in Phase 3:**
+1. ✅ Updated storage structure (accountSettings)
+2. ✅ Added getAccountSettings() helper
+3. ✅ Redesigned options.html with table structure
+4. ✅ Implemented options.js with domain conflict detection
+5. ✅ Feature 1 disabled by default (opt-in)
+6. ✅ Feature 2 depends on Feature 1 (disabled when Feature 1 is off)
+7. ✅ Settings preserved when features are disabled (only UI interaction disabled)
+
+**Next:** Test settings page in Thunderbird, then implement algorithm changes
 
 ## Summary
 

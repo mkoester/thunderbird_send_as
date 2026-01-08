@@ -5,9 +5,12 @@
 
 // Global state
 let baseEmails = [];
+let identities = []; // Store all identities for method-aware matching
 let settings = {
-  promptForAlias: {},        // Per-account: { "user@domain.com": true/false }
-  dontAskAgain: {},          // Per-account: { "user@domain.com": ["recipient@example.com"] }
+  // NEW: Per-account settings (by identity ID)
+  accountSettings: {},       // { "identityId": { feature1Enabled, aliasMethod, feature2Enabled, feature2DontAskList } }
+
+  // UNCHANGED: Global Feature 3 settings
   offerIdentityCreation: true, // Global setting
   skipIdentityCreation: [],  // Array of aliases to skip: ["user+temp@domain.com"]
   debugLogging: false        // Enable debug console logging (default: false)
@@ -56,16 +59,17 @@ async function initialize() {
  */
 async function loadSettings() {
   try {
+    // Clear old settings format (temporary - will implement migration later)
+    await messenger.storage.local.remove(['promptForAlias', 'dontAskAgain']);
+
     const stored = await messenger.storage.local.get([
-      'promptForAlias',
-      'dontAskAgain',
+      'accountSettings',
       'offerIdentityCreation',
       'skipIdentityCreation',
       'debugLogging'
     ]);
 
-    if (stored.promptForAlias) settings.promptForAlias = stored.promptForAlias;
-    if (stored.dontAskAgain) settings.dontAskAgain = stored.dontAskAgain;
+    if (stored.accountSettings) settings.accountSettings = stored.accountSettings;
     if (stored.offerIdentityCreation !== undefined) settings.offerIdentityCreation = stored.offerIdentityCreation;
     if (stored.skipIdentityCreation) settings.skipIdentityCreation = stored.skipIdentityCreation;
     if (stored.debugLogging !== undefined) settings.debugLogging = stored.debugLogging;
@@ -74,6 +78,23 @@ async function loadSettings() {
   } catch (error) {
     errorLog('Send As Alias: Error loading settings:', error);
   }
+}
+
+/**
+ * Get account settings for an identity (with defaults)
+ */
+function getAccountSettings(identityId) {
+  if (settings.accountSettings[identityId]) {
+    return settings.accountSettings[identityId];
+  }
+
+  // Return default settings if not configured
+  return {
+    feature1Enabled: false,
+    aliasMethod: 'plus',
+    feature2Enabled: false,
+    feature2DontAskList: []
+  };
 }
 
 /**

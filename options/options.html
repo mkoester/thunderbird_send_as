@@ -7,7 +7,7 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
       padding: 20px;
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
     }
 
@@ -46,33 +46,104 @@
       margin-bottom: 15px;
     }
 
-    .account-list {
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      padding: 10px;
+    /* Account table styling */
+    .account-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+
+    .account-table th {
+      background: #f0f0f0;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid #ddd;
+      font-size: 14px;
+    }
+
+    .account-table td {
+      padding: 15px 12px;
+      border-bottom: 1px solid #e0e0e0;
+      vertical-align: top;
+    }
+
+    .account-table tr:hover {
       background: #f9f9f9;
     }
 
-    .account-item {
-      padding: 10px;
-      margin: 5px 0;
-      background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 3px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
     .account-email {
+      font-family: monospace;
+      font-size: 13px;
       font-weight: 500;
-      flex-grow: 1;
     }
 
     .account-name {
       color: #666;
       font-size: 13px;
-      margin-left: 10px;
+      margin-top: 2px;
+    }
+
+    .method-options {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .method-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .method-option input[type="radio"] {
+      margin-top: 2px;
+      cursor: pointer;
+    }
+
+    .method-option input[type="radio"]:disabled {
+      cursor: not-allowed;
+    }
+
+    .method-option label {
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .method-option label.disabled {
+      color: #999;
+      cursor: not-allowed;
+    }
+
+    .method-help {
+      font-size: 11px;
+      color: #999;
+      margin-left: 20px;
+    }
+
+    .domain-conflict-warning {
+      color: #d9534f;
+      font-size: 12px;
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    .checkbox-cell {
+      text-align: center;
+    }
+
+    .checkbox-cell input[type="checkbox"] {
+      transform: scale(1.2);
+      cursor: pointer;
+    }
+
+    .checkbox-cell input[type="checkbox"]:disabled {
+      cursor: not-allowed;
     }
 
     label {
@@ -81,9 +152,20 @@
       cursor: pointer;
     }
 
-    input[type="checkbox"] {
+    input[type="checkbox"],
+    input[type="radio"] {
       margin-right: 8px;
       cursor: pointer;
+    }
+
+    input[type="checkbox"]:disabled,
+    input[type="radio"]:disabled {
+      cursor: not-allowed;
+    }
+
+    label.disabled {
+      color: #999;
+      cursor: not-allowed;
     }
 
     button {
@@ -109,6 +191,14 @@
       background: #e0e0e0;
     }
 
+    .global-setting {
+      padding: 15px;
+      background: #f0f7ff;
+      border: 1px solid #b3d9ff;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+
     .list-item {
       padding: 8px;
       margin: 4px 0;
@@ -116,7 +206,7 @@
       border: 1px solid #e0e0e0;
       border-radius: 3px;
       display: flex;
-      justify-items: space-between;
+      justify-content: space-between;
       align-items: center;
     }
 
@@ -137,14 +227,6 @@
       font-style: italic;
       padding: 20px;
       text-align: center;
-    }
-
-    .global-setting {
-      padding: 15px;
-      background: #f0f7ff;
-      border: 1px solid #b3d9ff;
-      border-radius: 4px;
-      margin-bottom: 15px;
     }
 
     .status-message {
@@ -173,46 +255,43 @@
     <img src="../icons/icon-48.png" alt="Send As Alias Logo" class="header-logo">
   </div>
   <p class="description">
-    Configure how the extension handles email aliases for plus-addressing (user+alias@domain.com).
+    Configure email alias management with support for plus-addressing, own domain, and catchall methods.
   </p>
 
   <div id="statusMessage" class="status-message"></div>
 
-  <!-- Feature 1 -->
+  <!-- Account Settings -->
   <div class="section">
-    <h2>Feature 1: Auto-Reply with Alias</h2>
+    <h2>Account Settings</h2>
     <p class="description">
-      Automatically sets your From address to match aliases when replying to emails.
-      <strong>Always active</strong> - no configuration needed!
-    </p>
-    <div class="global-setting">
-      <strong>How it works:</strong> When you reply to an email sent to user+shopping@domain.com,
-      the extension automatically sets your From address to user+shopping@domain.com.
-    </div>
-  </div>
-
-  <!-- Feature 2 -->
-  <div class="section">
-    <h2>Feature 2: Alias Suggestion</h2>
-    <p class="description">
-      Prompt to use an alias when composing emails from your base address.
-      Enable per account below:
+      Configure alias management individually for each email account.
     </p>
 
-    <div id="accountList" class="account-list">
-      <div class="empty-state">Loading accounts...</div>
-    </div>
-
-    <button id="manageExceptions" class="secondary" style="margin-top: 10px;">
-      Manage "Don't Ask Again" Lists
-    </button>
+    <table class="account-table" id="accountTable">
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Display Name</th>
+          <th style="text-align: center;">Auto-Reply</th>
+          <th>Alias Method</th>
+          <th style="text-align: center;">Suggest Alias</th>
+        </tr>
+      </thead>
+      <tbody id="accountTableBody">
+        <tr>
+          <td colspan="5" class="empty-state">Loading accounts...</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
-  <!-- Feature 3 -->
+  <hr style="border: none; border-top: 2px solid #e0e0e0; margin: 30px 0;">
+
+  <!-- Feature 3: Identity Creation -->
   <div class="section">
-    <h2>Feature 3: Auto-Create Identity</h2>
+    <h2>Identity Creation (Feature 3)</h2>
     <p class="description">
-      Offer to save new aliases as Thunderbird identities when you use them.
+      Automatically offer to save new aliases as Thunderbird identities.
     </p>
 
     <div class="global-setting">
