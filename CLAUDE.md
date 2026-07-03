@@ -84,6 +84,11 @@ The build script:
   `Mirko Köster <it@…>` for an identity named `Mirko Köster IT`. Only when no
   identity exists yet is the From header overridden, and only then does
   Feature 3 offer creation.
+- **First-run onboarding** (issue #1): `runtime.onInstalled` (reason
+  `install`) opens the options page, and the options page shows a warning-style
+  setup hint (`#setupHint`, `updateSetupHint()`) while no account has
+  Auto-Reply enabled — without that the extension is entirely inactive, which
+  confused users ("no configuration needed" was in old docs).
 - **Options table shows one row per account** — the account's *default* identity
   (`accounts.list()` + `identities.getDefault(accountId)`), not every identity.
   Identities created by Feature 3 for aliases would otherwise flood the table.

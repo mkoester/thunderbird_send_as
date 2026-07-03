@@ -127,6 +127,15 @@ function getIdentityById(identityId) {
 }
 
 /**
+ * Show the setup hint while no account has Auto-Reply enabled — without it
+ * the extension is entirely inactive (all features are per-account opt-in)
+ */
+function updateSetupHint() {
+  const anyEnabled = document.querySelector('#accountTableBody .feature1-enabled:checked') !== null;
+  document.getElementById('setupHint').hidden = anyEnabled;
+}
+
+/**
  * Update domain conflict warnings
  */
 function updateDomainConflicts() {
@@ -193,6 +202,8 @@ function updateDomainConflicts() {
       feature2Checkbox.disabled = !feature1Checkbox.checked;
     }
   });
+
+  updateSetupHint();
 }
 
 /**
