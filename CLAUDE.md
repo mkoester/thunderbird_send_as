@@ -32,6 +32,11 @@ The build script:
 - `theme/` - Shared design system: `tokens.css` (color tokens, light + dark palettes) and `theme.js` (applies the stored theme)
 - `icons/` - Extension icons (48x48, 96x96)
 - `build.sh` - Build script (use this!) — runs the tests, then packages
+- `scripts/screenshot-ui` - Renders options + both popups to `screenshots/`
+  (gitignored) in light and dark via a headless Chromium-family browser
+  (`$SCREENSHOT_BROWSER` overrides autodetection); `hidden` elements are shown.
+  Use it to review CSS changes without installing the XPI; allowlisted in
+  `.claude/settings.json`
 - `LICENSE` - GPL-3.0 license
 - `README.md` - User documentation
 - `INSTALL.md` - Installation guide
