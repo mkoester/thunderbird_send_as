@@ -1,0 +1,260 @@
+/* Options page styles on the shared tokens (see ../theme/tokens.css). */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+h1 {
+  font-size: 1.25rem;
+  color: var(--fg-strong);
+}
+
+.header-logo {
+  width: 48px;
+  height: 48px;
+}
+
+h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+  margin-bottom: 0.75rem;
+}
+
+.section {
+  margin-bottom: 2rem;
+}
+
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
+}
+
+.description {
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+}
+
+/* ---- Account table ---- */
+
+.account-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.account-table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.account-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--surface-2);
+  vertical-align: top;
+}
+
+.account-table tbody tr:hover {
+  background: var(--hover-bg);
+}
+
+.account-table th.checkbox-cell,
+.account-table td.checkbox-cell {
+  text-align: center;
+}
+
+.account-email {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--link);
+}
+
+.account-name {
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+}
+
+.method-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.method-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.method-option input[type="radio"] {
+  margin-top: 0.15rem;
+}
+
+.method-option label {
+  display: block;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.method-help {
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+}
+
+.domain-conflict-warning {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: 4px;
+  color: var(--warning-fg);
+  font-size: 0.75rem;
+}
+
+/* ---- Controls ---- */
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+label.disabled {
+  color: var(--fg-muted);
+  cursor: not-allowed;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+}
+
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  cursor: not-allowed;
+}
+
+select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+button {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--link);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--border);
+}
+
+/* ---- Panels & lists ---- */
+
+.global-setting {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.skip-list {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
+
+.skip-list-items {
+  margin-top: 0.5rem;
+}
+
+.list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.list-item-text {
+  flex-grow: 1;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--link);
+  word-break: break-all;
+}
+
+.list-item button {
+  background: var(--error-bg);
+  border-color: var(--error-border);
+  flex-shrink: 0;
+}
+
+.empty-state {
+  color: var(--fg-muted);
+  font-style: italic;
+  padding: 1rem;
+  text-align: center;
+}
+
+/* ---- Status messages ---- */
+
+.status-message {
+  display: none;
+  padding: 0.6rem 0.8rem;
+  margin: 0.75rem 0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.status-message.success {
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--success-fg);
+}
+
+.status-message.error {
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  color: var(--error-fg);
+}

@@ -88,6 +88,7 @@ cp -r shared/ "$TEMP_DIR/"
 cp -r icons/ "$TEMP_DIR/"
 cp -r options/ "$TEMP_DIR/"
 cp -r popup/ "$TEMP_DIR/"
+cp -r theme/ "$TEMP_DIR/"
 
 # Update version in manifest.json inside temp directory
 sed -i "s/\"version\":\\s*\"[^\"]*\"/\"version\": \"$VERSION\"/" "$TEMP_DIR/manifest.json"
@@ -103,6 +104,7 @@ zip -r "$SCRIPT_DIR/$OUTPUT_FILE" \
     icons/ \
     options/ \
     popup/ \
+    theme/ \
     -x "*.DS_Store" \
     -x "__MACOSX/*" \
     -x "*/README.md"

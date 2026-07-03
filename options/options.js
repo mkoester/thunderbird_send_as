@@ -6,7 +6,8 @@ let settings = {
   accountSettings: {},
   offerIdentityCreation: true,
   skipIdentityCreation: [],
-  debugLogging: false
+  debugLogging: false,
+  theme: 'system'
 };
 
 let identities = [];
@@ -51,13 +52,15 @@ async function loadSettings() {
       'accountSettings',
       'offerIdentityCreation',
       'skipIdentityCreation',
-      'debugLogging'
+      'debugLogging',
+      'theme'
     ]);
 
     if (stored.accountSettings) settings.accountSettings = stored.accountSettings;
     if (stored.offerIdentityCreation !== undefined) settings.offerIdentityCreation = stored.offerIdentityCreation;
     if (stored.skipIdentityCreation) settings.skipIdentityCreation = stored.skipIdentityCreation;
     if (stored.debugLogging !== undefined) settings.debugLogging = stored.debugLogging;
+    if (stored.theme) settings.theme = stored.theme;
 
     console.log('Loaded settings:', settings);
   } catch (error) {
@@ -96,7 +99,8 @@ async function saveGlobalSettings() {
     await messenger.storage.local.set({
       offerIdentityCreation: settings.offerIdentityCreation,
       skipIdentityCreation: settings.skipIdentityCreation,
-      debugLogging: settings.debugLogging
+      debugLogging: settings.debugLogging,
+      theme: settings.theme
     });
 
     console.log('Global settings saved');
@@ -438,6 +442,15 @@ async function initialize() {
   checkbox.checked = settings.offerIdentityCreation;
   checkbox.addEventListener('change', async (e) => {
     settings.offerIdentityCreation = e.target.checked;
+    await saveGlobalSettings();
+  });
+
+  // Set up Theme select (applied live via theme/theme.js)
+  const themeSelect = document.getElementById('themeSelect');
+  themeSelect.value = settings.theme;
+  themeSelect.addEventListener('change', async (e) => {
+    settings.theme = e.target.value;
+    applyTheme(settings.theme);
     await saveGlobalSettings();
   });
 
