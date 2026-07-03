@@ -738,6 +738,14 @@ messenger.identities.onDeleted.addListener((_id) => {
   loadBaseEmails();
 });
 
+// Open the settings page on first install: every feature is per-account
+// opt-in, so the extension does nothing until configured (issue #1)
+messenger.runtime.onInstalled.addListener(({ reason }) => {
+  if (reason === 'install') {
+    messenger.runtime.openOptionsPage();
+  }
+});
+
 // Initialize when extension loads
 infoLog('Send As Alias: Background script starting...');
 initialize().then(() => {

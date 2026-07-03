@@ -2,6 +2,9 @@
 *.xpi
 *.zip
 
+# UI screenshots (scripts/screenshot-ui)
+screenshots/
+
 # OS files
 .DS_Store
 Thumbs.db

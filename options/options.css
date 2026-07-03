@@ -248,6 +248,17 @@ button:hover {
   text-align: center;
 }
 
+.setup-hint {
+  padding: 0.6rem 0.8rem;
+  margin: 0.75rem 0;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: 6px;
+  color: var(--warning-fg);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
 /* ---- Status messages ---- */
 
 .status-message {

@@ -32,6 +32,11 @@ The build script:
 - `theme/` - Shared design system: `tokens.css` (color tokens, light + dark palettes) and `theme.js` (applies the stored theme)
 - `icons/` - Extension icons (48x48, 96x96)
 - `build.sh` - Build script (use this!) — runs the tests, then packages
+- `scripts/screenshot-ui` - Renders options + both popups to `screenshots/`
+  (gitignored) in light and dark via a headless Chromium-family browser
+  (`$SCREENSHOT_BROWSER` overrides autodetection); `hidden` elements are shown.
+  Use it to review CSS changes without installing the XPI; allowlisted in
+  `.claude/settings.json`
 - `LICENSE` - GPL-3.0 license
 - `README.md` - User documentation
 - `INSTALL.md` - Installation guide
@@ -84,6 +89,11 @@ The build script:
   `Mirko Köster <it@…>` for an identity named `Mirko Köster IT`. Only when no
   identity exists yet is the From header overridden, and only then does
   Feature 3 offer creation.
+- **First-run onboarding** (issue #1): `runtime.onInstalled` (reason
+  `install`) opens the options page, and the options page shows a warning-style
+  setup hint (`#setupHint`, `updateSetupHint()`) while no account has
+  Auto-Reply enabled — without that the extension is entirely inactive, which
+  confused users ("no configuration needed" was in old docs).
 - **Options table shows one row per account** — the account's *default* identity
   (`accounts.list()` + `identities.getDefault(accountId)`), not every identity.
   Identities created by Feature 3 for aliases would otherwise flood the table.

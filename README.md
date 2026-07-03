@@ -5,6 +5,12 @@ Automatically manage email aliases with support for multiple alias methods:
 - **Own domain**: `alias@yourdomain.com` (domains you own)
 - **Catchall**: `anything@yourdomain.com` (domains with catchall forwarding)
 
+> **Initial setup required:** after installation the extension is inactive until
+> you enable **Auto-Reply** for at least one account in the extension settings
+> and select its alias method — all features are opt-in per account. The
+> settings page opens automatically after installation; see
+> [Configuration](#configuration).
+
 ## Features
 
 ### Feature 1: Auto-Reply with Alias 📧 Per-Account (Opt-In)
