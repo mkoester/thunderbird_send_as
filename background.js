@@ -26,16 +26,28 @@ const processedComposeTabs = new Set();
 const pendingPrompts = new Map();
 
 /**
- * Handle responses from prompt popup windows
+ * Handle responses from prompt popup windows.
+ *
+ * The alias prompt resolves a pending in-memory promise (the compose flow is
+ * waiting to set the From header of a specific tab). The identity prompt is
+ * handled statelessly instead: the popup echoes all data needed to create the
+ * identity, so the response survives an event-page restart in between — an
+ * in-memory resolver would be gone and the response silently dropped (that
+ * bug ate identity creations without any error).
  */
 messenger.runtime.onMessage.addListener((message, sender) => {
-  if (message.type === 'aliasPromptResponse' || message.type === 'identityPromptResponse') {
+  if (message.type === 'aliasPromptResponse') {
     const windowId = sender.tab && sender.tab.windowId;
     const resolve = pendingPrompts.get(windowId);
+    debugLog(`Send As Alias: aliasPromptResponse from window ${windowId}, pending resolver found: ${!!resolve}`);
     if (resolve) {
       pendingPrompts.delete(windowId);
       resolve(message);
+    } else {
+      errorLog(`Send As Alias: aliasPromptResponse from window ${windowId} dropped - no pending prompt (background restarted?)`);
     }
+  } else if (message.type === 'identityPromptResponse') {
+    handleIdentityPromptResponse(message);
   }
 });
 
@@ -47,6 +59,7 @@ messenger.runtime.onMessage.addListener((message, sender) => {
 messenger.windows.onRemoved.addListener((windowId) => {
   const resolve = pendingPrompts.get(windowId);
   if (resolve) {
+    debugLog(`Send As Alias: Prompt window ${windowId} closed without response - resolving as cancelled`);
     pendingPrompts.delete(windowId);
     resolve({ cancelled: true });
   }
@@ -295,12 +308,65 @@ async function showAliasPrompt(fromEmail, toEmail, method, domain) {
 }
 
 /**
+ * FEATURE 3: Handle the identity prompt's response (stateless — everything
+ * needed is in the message, so it also works after an event-page restart)
+ */
+async function handleIdentityPromptResponse(response) {
+  try {
+    debugLog('Send As Alias: Identity prompt response:', response);
+
+    if (response.create) {
+      const allIdentities = await messenger.identities.list();
+      const baseIdentity = allIdentities.find(id => id.email.toLowerCase() === response.baseEmail.toLowerCase());
+
+      if (!baseIdentity) {
+        errorLog(`Send As Alias: Can't find base identity for ${response.baseEmail}`);
+        return;
+      }
+
+      await messenger.identities.create(baseIdentity.accountId, {
+        email: response.aliasEmail,
+        name: response.identityName,
+        replyTo: baseIdentity.replyTo || '',
+        composeHtml: baseIdentity.composeHtml,
+        signature: baseIdentity.signature || ''
+      });
+
+      infoLog(`Send As Alias: Created new identity: ${response.identityName} <${response.aliasEmail}>`);
+
+      // Reload base emails to include the new identity
+      await loadBaseEmails();
+    }
+
+    if (response.dontAskAgain) {
+      // Read the list fresh from storage: this handler may run right after an
+      // event-page restart, before loadSettings() has repopulated `settings`
+      const stored = await messenger.storage.local.get('skipIdentityCreation');
+      const skipList = stored.skipIdentityCreation || [];
+      if (!skipList.includes(response.aliasEmail)) {
+        skipList.push(response.aliasEmail);
+        await messenger.storage.local.set({ skipIdentityCreation: skipList });
+        debugLog(`Send As Alias: Added ${response.aliasEmail} to skip list`);
+      }
+    }
+  } catch (error) {
+    errorLog('Send As Alias: Error handling identity prompt response:', error);
+  }
+}
+
+/**
  * FEATURE 3: Show identity creation prompt
- * Opens a popup window and waits for user response
+ * Fire-and-forget popup — its response arrives as a runtime message handled
+ * by handleIdentityPromptResponse, so no pending resolver is registered
  */
 async function showCreateIdentityPrompt(options) {
-  const url = `popup/identity-prompt.html?email=${encodeURIComponent(options.email)}&baseName=${encodeURIComponent(options.baseName)}&aliasName=${encodeURIComponent(options.aliasName || '')}`;
-  return showPromptWindow(url, 300);
+  const url = `popup/identity-prompt.html?email=${encodeURIComponent(options.email)}&baseName=${encodeURIComponent(options.baseName)}&aliasName=${encodeURIComponent(options.aliasName || '')}&baseEmail=${encodeURIComponent(options.baseEmail)}`;
+  await messenger.windows.create({
+    url: url,
+    type: 'popup',
+    width: 550,
+    height: 300
+  });
 }
 
 /**
@@ -343,38 +409,14 @@ async function maybeCreateIdentity(aliasEmail, baseEmail, method) {
 
     debugLog(`Send As Alias: Prompting to create identity: ${suggestedName}`);
 
-    // Prompt user
-    const result = await showCreateIdentityPrompt({
+    // Open the prompt; creation happens in handleIdentityPromptResponse when
+    // (and if) the popup answers
+    await showCreateIdentityPrompt({
       email: aliasEmail,
-      suggestedName: suggestedName,
+      baseEmail: baseIdentity.email,
       baseName: baseIdentity.name,
       aliasName: aliasName
     });
-
-    debugLog(`Send As Alias: Identity prompt result:`, result);
-
-    if (result.create) {
-      // Create new identity
-      const newIdentity = await messenger.identities.create(baseIdentity.accountId, {
-        email: aliasEmail,
-        name: result.identityName || suggestedName,
-        replyTo: baseIdentity.replyTo || '',
-        composeHtml: baseIdentity.composeHtml,
-        signature: baseIdentity.signature || ''
-      });
-
-      infoLog(`Send As Alias: Created new identity: ${result.identityName} <${aliasEmail}>`);
-
-      // Reload base emails to include the new identity
-      await loadBaseEmails();
-    }
-
-    if (result.dontAskAgain) {
-      // Remember not to ask for this alias
-      settings.skipIdentityCreation.push(aliasEmail);
-      await messenger.storage.local.set({ skipIdentityCreation: settings.skipIdentityCreation });
-      debugLog(`Send As Alias: Added ${aliasEmail} to skip list`);
-    }
   } catch (error) {
     errorLog(`Send As Alias: Error creating identity for ${aliasEmail}:`, error);
   }

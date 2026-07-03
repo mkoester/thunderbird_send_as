@@ -53,6 +53,15 @@ The build script:
   `windows.onRemoved` resolves an unanswered prompt as `{ cancelled: true }`
   (treated as "skip"). Popups send their response **before** calling
   `window.close()`.
+- **The identity prompt (Feature 3) is stateless** (2026-07-03 bug fix): the
+  in-memory resolver map does **not** survive MV3 event-page restarts, and a
+  dropped resolver silently ate the popup's response — identity never created,
+  no error. Now the popup echoes `aliasEmail`/`baseEmail`/`identityName` in its
+  runtime message and `handleIdentityPromptResponse` creates the identity
+  directly in the `onMessage` handler, no pending state needed. Only the alias
+  prompt (Feature 2) still uses the resolver map, because its response must
+  reach the compose flow awaiting it; a dropped alias response is now at least
+  `errorLog`ged instead of silent.
 - `processedComposeTabs` entries are dropped on `tabs.onRemoved` (tab ids can be
   reused).
 - **Options table shows one row per account** — the account's *default* identity
