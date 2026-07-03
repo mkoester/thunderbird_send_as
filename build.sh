@@ -66,6 +66,10 @@ else
     echo "Git info: branch=$BRANCH, commit=$COMMIT_HASH, status=$CLEAN_STATUS"
 fi
 
+# Run unit tests before packaging
+echo "Running unit tests..."
+node --test tests/*.test.js
+
 # Output file path (parent directory)
 OUTPUT_FILE="../send-as-alias-${VERSION}.xpi"
 
@@ -80,9 +84,11 @@ echo "Using temporary directory: $TEMP_DIR"
 # Copy all necessary files to temp directory
 cp manifest.json "$TEMP_DIR/"
 cp background.js "$TEMP_DIR/"
+cp -r shared/ "$TEMP_DIR/"
 cp -r icons/ "$TEMP_DIR/"
 cp -r options/ "$TEMP_DIR/"
 cp -r popup/ "$TEMP_DIR/"
+cp -r theme/ "$TEMP_DIR/"
 
 # Update version in manifest.json inside temp directory
 sed -i "s/\"version\":\\s*\"[^\"]*\"/\"version\": \"$VERSION\"/" "$TEMP_DIR/manifest.json"
@@ -94,9 +100,11 @@ cd "$TEMP_DIR"
 zip -r "$SCRIPT_DIR/$OUTPUT_FILE" \
     manifest.json \
     background.js \
+    shared/ \
     icons/ \
     options/ \
     popup/ \
+    theme/ \
     -x "*.DS_Store" \
     -x "__MACOSX/*" \
     -x "*/README.md"

@@ -83,12 +83,13 @@ Offers to save new aliases as Thunderbird identities when you use them for the f
 ### Building for Distribution
 
 ```bash
-# Create XPI file
-cd thunderbird_send_as
-zip -r ../send-as-alias.xpi * -x ".*" -x "*.md" -x "DESIGN.md" -x "notes.md" -x "task_plan.md" -x "FEATURES.md"
+./build.sh
 ```
 
-Then install the `.xpi` file in Thunderbird.
+The script runs the unit tests, applies git-based versioning (clean `main` →
+manifest version; other branches/dirty tree get a commit-hash/`-SNAPSHOT`
+suffix), and writes the XPI to the parent directory
+(`../send-as-alias-<version>.xpi`). Then install the `.xpi` file in Thunderbird.
 
 ---
 
@@ -236,6 +237,10 @@ See [DESIGN_OWN_DOMAIN.md](DESIGN_OWN_DOMAIN.md) for technical specification and
 thunderbird_send_as/
 ├── manifest.json              # Extension metadata
 ├── background.js              # Main extension logic
+├── shared/
+│   └── alias-utils.js         # Pure alias/email helpers (unit-tested)
+├── tests/
+│   └── alias-utils.test.js    # Unit tests (node --test, run by build.sh)
 ├── options/
 │   ├── options.html           # Settings UI
 │   └── options.js             # Settings logic
@@ -245,9 +250,11 @@ thunderbird_send_as/
 │   ├── identity-prompt.html   # Identity creation popup
 │   └── identity-prompt.js     # Identity creation logic
 ├── icons/                     # Extension icons
+├── build.sh                   # Build script (tests + versioned XPI)
 ├── README.md                  # This file
 ├── DESIGN_OWN_DOMAIN.md       # Technical specification
-└── WAYLAND.md                 # Wayland configuration guide
+├── WAYLAND.md                 # Wayland configuration guide
+└── docs/archive/              # Historical plan/design/debug notes
 ```
 
 ---

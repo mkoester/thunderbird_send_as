@@ -3,256 +3,17 @@
 <head>
   <meta charset="utf-8">
   <title>Send As Alias - Settings</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-      padding: 20px;
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
-    h1 {
-      font-size: 24px;
-      margin: 0;
-    }
-
-    .header-logo {
-      width: 48px;
-      height: 48px;
-    }
-
-    h2 {
-      font-size: 18px;
-      margin-top: 30px;
-      margin-bottom: 15px;
-      border-bottom: 2px solid #e0e0e0;
-      padding-bottom: 5px;
-    }
-
-    .section {
-      margin-bottom: 30px;
-    }
-
-    .description {
-      color: #666;
-      font-size: 14px;
-      margin-bottom: 15px;
-    }
-
-    /* Account table styling */
-    .account-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 30px;
-    }
-
-    .account-table th {
-      background: #f0f0f0;
-      padding: 12px;
-      text-align: left;
-      font-weight: 600;
-      border-bottom: 2px solid #ddd;
-      font-size: 14px;
-    }
-
-    .account-table td {
-      padding: 15px 12px;
-      border-bottom: 1px solid #e0e0e0;
-      vertical-align: top;
-    }
-
-    .account-table tr:hover {
-      background: #f9f9f9;
-    }
-
-    .account-email {
-      font-family: monospace;
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    .account-name {
-      color: #666;
-      font-size: 13px;
-      margin-top: 2px;
-    }
-
-    .method-options {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .method-option {
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-    }
-
-    .method-option input[type="radio"] {
-      margin-top: 2px;
-      cursor: pointer;
-    }
-
-    .method-option input[type="radio"]:disabled {
-      cursor: not-allowed;
-    }
-
-    .method-option label {
-      cursor: pointer;
-      font-size: 13px;
-      line-height: 1.4;
-    }
-
-    .method-option label.disabled {
-      color: #999;
-      cursor: not-allowed;
-    }
-
-    .method-help {
-      font-size: 11px;
-      color: #999;
-      margin-left: 20px;
-    }
-
-    .domain-conflict-warning {
-      color: #d9534f;
-      font-size: 12px;
-      margin-top: 8px;
-      padding: 6px 10px;
-      background: #fff3cd;
-      border: 1px solid #ffc107;
-      border-radius: 3px;
-      display: inline-block;
-    }
-
-    .checkbox-cell {
-      text-align: center;
-    }
-
-    .checkbox-cell input[type="checkbox"] {
-      transform: scale(1.2);
-      cursor: pointer;
-    }
-
-    .checkbox-cell input[type="checkbox"]:disabled {
-      cursor: not-allowed;
-    }
-
-    label {
-      display: flex;
-      align-items: center;
-      cursor: pointer;
-    }
-
-    input[type="checkbox"],
-    input[type="radio"] {
-      margin-right: 8px;
-      cursor: pointer;
-    }
-
-    input[type="checkbox"]:disabled,
-    input[type="radio"]:disabled {
-      cursor: not-allowed;
-    }
-
-    label.disabled {
-      color: #999;
-      cursor: not-allowed;
-    }
-
-    button {
-      padding: 8px 16px;
-      background: #0060df;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-
-    button:hover {
-      background: #0050c0;
-    }
-
-    button.secondary {
-      background: #f0f0f0;
-      color: #333;
-    }
-
-    button.secondary:hover {
-      background: #e0e0e0;
-    }
-
-    .global-setting {
-      padding: 15px;
-      background: #f0f7ff;
-      border: 1px solid #b3d9ff;
-      border-radius: 4px;
-      margin-bottom: 15px;
-    }
-
-    .list-item {
-      padding: 8px;
-      margin: 4px 0;
-      background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 3px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .list-item-text {
-      flex-grow: 1;
-      font-family: monospace;
-      font-size: 13px;
-    }
-
-    .list-item button {
-      margin-left: 10px;
-      padding: 4px 12px;
-      font-size: 12px;
-    }
-
-    .empty-state {
-      color: #999;
-      font-style: italic;
-      padding: 20px;
-      text-align: center;
-    }
-
-    .status-message {
-      padding: 10px;
-      margin: 10px 0;
-      border-radius: 4px;
-      display: none;
-    }
-
-    .status-message.success {
-      background: #d4edda;
-      border: 1px solid #c3e6cb;
-      color: #155724;
-    }
-
-    .status-message.error {
-      background: #f8d7da;
-      border: 1px solid #f5c6cb;
-      color: #721c24;
-    }
-  </style>
+  <link rel="stylesheet" href="../theme/tokens.css">
+  <link rel="stylesheet" href="options.css">
+  <script src="../theme/theme.js"></script>
 </head>
 <body>
   <div class="header">
     <h1>Send As Alias - Settings</h1>
-    <img src="../icons/icon-48.png" alt="Send As Alias Logo" class="header-logo">
+    <div class="header-meta">
+      <span id="version" class="version"></span>
+      <img src="../icons/icon-48.png" alt="Send As Alias Logo" class="header-logo">
+    </div>
   </div>
   <p class="description">
     Configure email alias management with support for plus-addressing, own domain, and catchall methods.
@@ -272,9 +33,9 @@
         <tr>
           <th>Account</th>
           <th>Display Name</th>
-          <th style="text-align: center;">Auto-Reply</th>
+          <th class="checkbox-cell">Auto-Reply</th>
           <th>Alias Method</th>
-          <th style="text-align: center;">Suggest Alias</th>
+          <th class="checkbox-cell">Suggest Alias</th>
         </tr>
       </thead>
       <tbody id="accountTableBody">
@@ -285,7 +46,7 @@
     </table>
   </div>
 
-  <hr style="border: none; border-top: 2px solid #e0e0e0; margin: 30px 0;">
+  <hr class="section-divider">
 
   <!-- Feature 3: Identity Creation -->
   <div class="section">
@@ -301,11 +62,30 @@
       </label>
     </div>
 
-    <div id="skipList" style="margin-top: 15px;">
+    <div id="skipList" class="skip-list">
       <strong>Aliases to never prompt for:</strong>
-      <div id="skipListItems" style="margin-top: 10px;">
+      <div id="skipListItems" class="skip-list-items">
         <div class="empty-state">No aliases skipped</div>
       </div>
+    </div>
+  </div>
+
+  <!-- Appearance -->
+  <div class="section">
+    <h2>Appearance</h2>
+    <p class="description">
+      Theme for the settings page and popup windows.
+    </p>
+
+    <div class="global-setting">
+      <label>
+        <span>Theme</span>
+        <select id="themeSelect">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
     </div>
   </div>
 
@@ -322,7 +102,7 @@
         <span>Enable debug logging to console (default: off)</span>
       </label>
     </div>
-    <p class="description" style="margin-top: 10px; font-size: 12px; color: #666;">
+    <p class="description">
       When enabled, detailed debug messages will be logged to the Browser Console (Ctrl+Shift+J).
       Important messages (startup, errors) are always logged.
     </p>

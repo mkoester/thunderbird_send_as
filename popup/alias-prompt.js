@@ -44,35 +44,34 @@ document.getElementById('useAliasBtn').addEventListener('click', () => {
   const aliasName = aliasInput.value.trim();
   const dontAskAgain = document.getElementById('dontAskAgain').checked;
 
+  // Send first, then close: closing first can tear the page down before the
+  // message is delivered (the background then treats the prompt as cancelled)
   if (aliasName) {
     // User wants to use an alias
-    window.close();
     browser.runtime.sendMessage({
       type: 'aliasPromptResponse',
       useAlias: true,
       aliasName: aliasName,
       dontAskAgain: false
-    });
+    }).finally(() => window.close());
   } else {
     // No alias entered, just close with base address
-    window.close();
     browser.runtime.sendMessage({
       type: 'aliasPromptResponse',
       useAlias: false,
       dontAskAgain: dontAskAgain
-    });
+    }).finally(() => window.close());
   }
 });
 
 // Handle "Continue without alias" button
 document.getElementById('skipBtn').addEventListener('click', () => {
   const dontAskAgain = document.getElementById('dontAskAgain').checked;
-  window.close();
   browser.runtime.sendMessage({
     type: 'aliasPromptResponse',
     useAlias: false,
     dontAskAgain: dontAskAgain
-  });
+  }).finally(() => window.close());
 });
 
 // Handle Enter key

@@ -19,25 +19,71 @@ let settings = {
 // Track which compose windows we've already processed (to avoid duplicate handling)
 const processedComposeTabs = new Set();
 
+// Pending popup prompts, keyed by the popup's window id. Keying (instead of a
+// single global resolver) keeps concurrent compose windows independent, and
+// windows.onRemoved guarantees every promise settles even if the popup is
+// closed via the window manager without clicking a button.
+const pendingPrompts = new Map();
+
 /**
- * Handle messages from popup windows
+ * Handle responses from prompt popup windows.
+ *
+ * The alias prompt resolves a pending in-memory promise (the compose flow is
+ * waiting to set the From header of a specific tab). The identity prompt is
+ * handled statelessly instead: the popup echoes all data needed to create the
+ * identity, so the response survives an event-page restart in between — an
+ * in-memory resolver would be gone and the response silently dropped (that
+ * bug ate identity creations without any error).
  */
 messenger.runtime.onMessage.addListener((message, sender) => {
   if (message.type === 'aliasPromptResponse') {
-    // Call the stored resolve function from showAliasPrompt
-    if (window.pendingAliasPromptResolve) {
-      window.pendingAliasPromptResolve(message);
-      window.pendingAliasPromptResolve = null;
+    const windowId = sender.tab && sender.tab.windowId;
+    const resolve = pendingPrompts.get(windowId);
+    debugLog(`Send As Alias: aliasPromptResponse from window ${windowId}, pending resolver found: ${!!resolve}`);
+    if (resolve) {
+      pendingPrompts.delete(windowId);
+      resolve(message);
+    } else {
+      errorLog(`Send As Alias: aliasPromptResponse from window ${windowId} dropped - no pending prompt (background restarted?)`);
     }
-  }
-  if (message.type === 'identityPromptResponse') {
-    // Call the stored resolve function from showCreateIdentityPrompt
-    if (window.pendingIdentityPromptResolve) {
-      window.pendingIdentityPromptResolve(message);
-      window.pendingIdentityPromptResolve = null;
-    }
+  } else if (message.type === 'identityPromptResponse') {
+    handleIdentityPromptResponse(message);
   }
 });
+
+/**
+ * Popup closed without answering (window-manager close button, Escape handled
+ * by the WM, crash, …): resolve the pending prompt as cancelled so the
+ * awaiting compose flow never hangs.
+ */
+messenger.windows.onRemoved.addListener((windowId) => {
+  const resolve = pendingPrompts.get(windowId);
+  if (resolve) {
+    debugLog(`Send As Alias: Prompt window ${windowId} closed without response - resolving as cancelled`);
+    pendingPrompts.delete(windowId);
+    resolve({ cancelled: true });
+  }
+});
+
+// Closed compose tabs can have their ids reused by Thunderbird — forget them
+messenger.tabs.onRemoved.addListener((tabId) => {
+  processedComposeTabs.delete(tabId);
+});
+
+/**
+ * Open a prompt popup and wait for its response (or cancellation on close)
+ */
+async function showPromptWindow(url, height) {
+  const win = await messenger.windows.create({
+    url: url,
+    type: 'popup',
+    width: 550,
+    height: height
+  });
+  return new Promise((resolve) => {
+    pendingPrompts.set(win.id, resolve);
+  });
+}
 
 /**
  * Initialize extension
@@ -197,66 +243,9 @@ async function loadBaseEmails() {
   }
 }
 
-/**
- * Extract email address from various formats
- * Handles: "Name <email@domain.com>" or "email@domain.com"
- */
-function extractEmail(recipient) {
-  if (!recipient) return null;
-
-  // Handle string or object format
-  const str = typeof recipient === 'string' ? recipient : recipient.address || '';
-
-  // Extract email from "Name <email>" format
-  const match = str.match(/<(.+?)>/);
-  if (match) {
-    return match[1].toLowerCase();
-  }
-
-  return str.trim().toLowerCase();
-}
-
-/**
- * Extract domain from email address
- */
-function extractDomain(email) {
-  const match = email.match(/@(.+)$/);
-  return match ? match[1] : null;
-}
-
-/**
- * Extract base based on method
- * For plus-addressing: strips +alias part
- * For own-domain/catchall: returns domain only
- */
-function extractBase(email, method) {
-  if (method === 'plus') {
-    // Strip +alias part
-    const match = email.match(/^([^+@]+)(\+[^@]+)?@(.+)$/);
-    return match ? `${match[1]}@${match[3]}` : email;
-  } else if (method === 'own-domain' || method === 'catchall') {
-    // Extract just the domain
-    return extractDomain(email);
-  }
-  return email;
-}
-
-/**
- * Check if email matches identity base for given method
- */
-function matchesBase(email, identity, method) {
-  if (method === 'plus') {
-    // Traditional plus-addressing
-    const emailBase = extractBase(email, 'plus');
-    return emailBase === identity.email && emailBase !== email;
-  } else if (method === 'own-domain' || method === 'catchall') {
-    // Domain matching
-    const emailDomain = extractDomain(email);
-    const identityDomain = extractDomain(identity.email);
-    return emailDomain === identityDomain && email !== identity.email;
-  }
-  return false;
-}
+// extractEmail / extractDomain / extractBase / matchesBase / aliasNamePart are
+// defined in shared/alias-utils.js, loaded before this file (manifest.json
+// background.scripts) — kept separate so they can be unit-tested under Node.
 
 /**
  * FEATURE 1: Find matching alias in recipients (method-aware)
@@ -310,50 +299,102 @@ async function findMatchingAlias(recipients) {
  * Opens a popup window and waits for user response
  */
 async function showAliasPrompt(fromEmail, toEmail, method, domain) {
-  return new Promise((resolve) => {
-    // Store the resolve function so we can call it when we get the response
-    window.pendingAliasPromptResolve = resolve;
+  // Build URL with method and domain parameters
+  let url = `popup/alias-prompt.html?from=${encodeURIComponent(fromEmail)}&to=${encodeURIComponent(toEmail || '')}&method=${encodeURIComponent(method)}`;
+  if (domain) {
+    url += `&domain=${encodeURIComponent(domain)}`;
+  }
+  return showPromptWindow(url, 400);
+}
 
-    // Build URL with method and domain parameters
-    let url = `popup/alias-prompt.html?from=${encodeURIComponent(fromEmail)}&to=${encodeURIComponent(toEmail || '')}&method=${encodeURIComponent(method)}`;
-    if (domain) {
-      url += `&domain=${encodeURIComponent(domain)}`;
+/**
+ * FEATURE 3: Handle the identity prompt's response (stateless — everything
+ * needed is in the message, so it also works after an event-page restart)
+ */
+async function handleIdentityPromptResponse(response) {
+  try {
+    debugLog('Send As Alias: Identity prompt response:', response);
+
+    if (response.create) {
+      const allIdentities = await messenger.identities.list();
+      const baseIdentity = allIdentities.find(id => id.email.toLowerCase() === response.baseEmail.toLowerCase());
+
+      if (!baseIdentity) {
+        errorLog(`Send As Alias: Can't find base identity for ${response.baseEmail}`);
+        return;
+      }
+
+      const newIdentity = await messenger.identities.create(baseIdentity.accountId, {
+        email: response.aliasEmail,
+        name: response.identityName,
+        replyTo: baseIdentity.replyTo || '',
+        composeHtml: baseIdentity.composeHtml,
+        signature: baseIdentity.signature || ''
+      });
+
+      infoLog(`Send As Alias: Created new identity: ${response.identityName} <${response.aliasEmail}>`);
+
+      // Reload base emails to include the new identity
+      await loadBaseEmails();
+
+      // Switch the compose window to the new identity: overriding the From
+      // header alone doesn't change the sender identity, which some mail
+      // servers reject on send
+      if (response.composeTabId != null) {
+        // Never try setComposeDetails({ identityId }) here: this compose
+        // window predates the identity, so its identity dropdown has no menu
+        // item for it. Thunderbird's ext-compose.js then sets selectedItem to
+        // undefined and crashes in LoadIdentity — and afterwards even plain
+        // From overrides crash (MakeFromFieldEditable reads selectedItem).
+        // Override the From header with the new identity's name instead; this
+        // message is sent from the base identity, and the real identity is
+        // used from the next compose on (applyAliasToCompose).
+        const from = `${response.identityName} <${response.aliasEmail}>`;
+        try {
+          await messenger.compose.setComposeDetails(response.composeTabId, { from: from });
+          debugLog(`Send As Alias: Updated From of compose tab ${response.composeTabId} to ${from}`);
+        } catch (error) {
+          errorLog(`Send As Alias: Could not update From of compose tab ${response.composeTabId}:`, error);
+        }
+      }
     }
 
-    messenger.windows.create({
-      url: url,
-      type: 'popup',
-      width: 550,
-      height: 400
-    });
-  });
+    if (response.dontAskAgain) {
+      // Read the list fresh from storage: this handler may run right after an
+      // event-page restart, before loadSettings() has repopulated `settings`
+      const stored = await messenger.storage.local.get('skipIdentityCreation');
+      const skipList = stored.skipIdentityCreation || [];
+      if (!skipList.includes(response.aliasEmail)) {
+        skipList.push(response.aliasEmail);
+        await messenger.storage.local.set({ skipIdentityCreation: skipList });
+        debugLog(`Send As Alias: Added ${response.aliasEmail} to skip list`);
+      }
+    }
+  } catch (error) {
+    errorLog('Send As Alias: Error handling identity prompt response:', error);
+  }
 }
 
 /**
  * FEATURE 3: Show identity creation prompt
- * Opens a popup window and waits for user response
+ * Fire-and-forget popup — its response arrives as a runtime message handled
+ * by handleIdentityPromptResponse, so no pending resolver is registered
  */
 async function showCreateIdentityPrompt(options) {
-  return new Promise((resolve) => {
-    // Store the resolve function so we can call it when we get the response
-    window.pendingIdentityPromptResolve = resolve;
-
-    // Open popup window
-    const url = `popup/identity-prompt.html?email=${encodeURIComponent(options.email)}&baseName=${encodeURIComponent(options.baseName)}`;
-    messenger.windows.create({
-      url: url,
-      type: 'popup',
-      width: 550,
-      height: 300
-    });
+  const url = `popup/identity-prompt.html?email=${encodeURIComponent(options.email)}&baseName=${encodeURIComponent(options.baseName)}&aliasName=${encodeURIComponent(options.aliasName || '')}&baseEmail=${encodeURIComponent(options.baseEmail)}&tabId=${encodeURIComponent(options.composeTabId ?? '')}`;
+  await messenger.windows.create({
+    url: url,
+    type: 'popup',
+    width: 550,
+    height: 300
   });
 }
 
 /**
  * FEATURE 3: Maybe create identity for new alias
  */
-async function maybeCreateIdentity(aliasEmail, baseEmail) {
-  debugLog(`Send As Alias: maybeCreateIdentity called with aliasEmail: ${aliasEmail}, baseEmail: ${baseEmail}`);
+async function maybeCreateIdentity(aliasEmail, baseEmail, method, composeTabId) {
+  debugLog(`Send As Alias: maybeCreateIdentity called with aliasEmail: ${aliasEmail}, baseEmail: ${baseEmail}, method: ${method}, composeTabId: ${composeTabId}`);
 
   try {
     // Check if this alias already exists as an identity
@@ -382,46 +423,46 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
 
     debugLog(`Send As Alias: Found base identity: ${baseIdentity.name} <${baseIdentity.email}>`);
 
-    // Extract alias name from email
-    const aliasName = aliasEmail.split('+')[1].split('@')[0];
-    const suggestedName = `${baseIdentity.name} (${aliasName})`;
+    // Method-aware alias name: "shopping" from user+shopping@… (plus),
+    // "sales" from sales@… (own-domain/catchall)
+    const aliasName = aliasNamePart(aliasEmail, method);
+    const suggestedName = aliasName ? `${baseIdentity.name} (${aliasName})` : baseIdentity.name;
 
     debugLog(`Send As Alias: Prompting to create identity: ${suggestedName}`);
 
-    // Prompt user
-    const result = await showCreateIdentityPrompt({
+    // Open the prompt; creation happens in handleIdentityPromptResponse when
+    // (and if) the popup answers
+    await showCreateIdentityPrompt({
       email: aliasEmail,
-      suggestedName: suggestedName,
-      baseName: baseIdentity.name
+      baseEmail: baseIdentity.email,
+      baseName: baseIdentity.name,
+      aliasName: aliasName,
+      composeTabId: composeTabId
     });
-
-    debugLog(`Send As Alias: Identity prompt result:`, result);
-
-    if (result.create) {
-      // Create new identity
-      const newIdentity = await messenger.identities.create(baseIdentity.accountId, {
-        email: aliasEmail,
-        name: result.identityName || suggestedName,
-        replyTo: baseIdentity.replyTo || '',
-        composeHtml: baseIdentity.composeHtml,
-        signature: baseIdentity.signature || ''
-      });
-
-      infoLog(`Send As Alias: Created new identity: ${result.identityName} <${aliasEmail}>`);
-
-      // Reload base emails to include the new identity
-      await loadBaseEmails();
-    }
-
-    if (result.dontAskAgain) {
-      // Remember not to ask for this alias
-      settings.skipIdentityCreation.push(aliasEmail);
-      await messenger.storage.local.set({ skipIdentityCreation: settings.skipIdentityCreation });
-      debugLog(`Send As Alias: Added ${aliasEmail} to skip list`);
-    }
   } catch (error) {
     errorLog(`Send As Alias: Error creating identity for ${aliasEmail}:`, error);
   }
+}
+
+/**
+ * Point a compose window's From at an alias address. If an identity already
+ * exists for that address, switch the compose to it (so its own name,
+ * signature etc. apply — building the From from the base identity's name
+ * would clobber them); otherwise override the From header with fallbackFrom.
+ * Returns the existing identity, or null if the From header was overridden.
+ */
+async function applyAliasToCompose(tabId, aliasEmail, fallbackFrom) {
+  const existingIdentity = identities.find(id => id.email.toLowerCase() === aliasEmail.toLowerCase());
+
+  if (existingIdentity) {
+    await messenger.compose.setComposeDetails(tabId, { identityId: existingIdentity.id });
+    debugLog(`Send As Alias: Switched compose tab ${tabId} to existing identity ${existingIdentity.name} <${existingIdentity.email}>`);
+    return existingIdentity;
+  }
+
+  await messenger.compose.setComposeDetails(tabId, { from: fallbackFrom });
+  debugLog(`Send As Alias: Set From of compose tab ${tabId} to ${fallbackFrom}`);
+  return null;
 }
 
 /**
@@ -434,6 +475,8 @@ async function handleCompose(tab, composeDetails) {
 
     let aliasWasSet = false;
     let usedAlias = null;
+    let usedIdentity = null; // base identity the alias belongs to (for Feature 3)
+    let usedMethod = null;
 
     // FEATURE 1: Auto-detect alias for replies/forwards
     if (composeDetails.relatedMessageId) {
@@ -456,10 +499,16 @@ async function handleCompose(tab, composeDetails) {
           debugLog(`Send As Alias: Feature 1 - Setting From to "${match.alias}" (method: ${match.method})`);
 
           try {
-            await messenger.compose.setComposeDetails(tab.id, { from: match.alias });
+            // match.alias might be "Name" <email@domain.com>
+            const aliasEmail = extractEmail(match.alias);
+            const existingIdentity = await applyAliasToCompose(tab.id, aliasEmail, match.alias);
             aliasWasSet = true;
-            // Extract just the email for Feature 3 (match.alias might be "Name" <email@domain.com>)
-            usedAlias = extractEmail(match.alias);
+            if (!existingIdentity) {
+              // Only offer identity creation (Feature 3) when none exists yet
+              usedAlias = aliasEmail;
+              usedIdentity = match.identity;
+              usedMethod = match.method;
+            }
           } catch (setError) {
             errorLog('Send As Alias: Feature 1 - Error setting From:', setError);
           }
@@ -519,9 +568,13 @@ async function handleCompose(tab, composeDetails) {
                     aliasWithName = `${currentIdentity.name} <${aliasEmail}>`;
                   }
 
-                  await messenger.compose.setComposeDetails(tab.id, { from: aliasWithName });
-                  debugLog(`Send As Alias: Feature 2 - Set From to ${aliasWithName}`);
-                  usedAlias = aliasEmail;
+                  const existingIdentity = await applyAliasToCompose(tab.id, aliasEmail, aliasWithName);
+                  if (!existingIdentity) {
+                    // Only offer identity creation (Feature 3) when none exists yet
+                    usedAlias = aliasEmail;
+                    usedIdentity = currentIdentity;
+                    usedMethod = method;
+                  }
                 } else if (result.dontAskAgain) {
                   // Save to dontAskAgain list for this account
                   accountSettings.feature2DontAskList = accountSettings.feature2DontAskList || [];
@@ -543,14 +596,12 @@ async function handleCompose(tab, composeDetails) {
     }
 
     // FEATURE 3: Offer to create identity for new alias
-    if (usedAlias && settings.offerIdentityCreation) {
+    if (usedAlias && usedIdentity && settings.offerIdentityCreation) {
       try {
-        // Extract base email from the alias
-        const [localPart, domain] = usedAlias.split('@');
-        const baseLocal = localPart.split('+')[0];
-        const baseEmail = `${baseLocal}@${domain}`;
-
-        await maybeCreateIdentity(usedAlias, baseEmail);
+        // The base is the identity the alias was derived from — no string
+        // parsing needed (parsing broke for own-domain/catchall aliases,
+        // where the alias contains no "+" and its local part isn't the base)
+        await maybeCreateIdentity(usedAlias, usedIdentity.email, usedMethod, tab.id);
       } catch (error) {
         errorLog('Send As Alias: Error in Feature 3:', error);
       }

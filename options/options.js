@@ -6,7 +6,8 @@ let settings = {
   accountSettings: {},
   offerIdentityCreation: true,
   skipIdentityCreation: [],
-  debugLogging: false
+  debugLogging: false,
+  theme: 'system'
 };
 
 let identities = [];
@@ -51,13 +52,15 @@ async function loadSettings() {
       'accountSettings',
       'offerIdentityCreation',
       'skipIdentityCreation',
-      'debugLogging'
+      'debugLogging',
+      'theme'
     ]);
 
     if (stored.accountSettings) settings.accountSettings = stored.accountSettings;
     if (stored.offerIdentityCreation !== undefined) settings.offerIdentityCreation = stored.offerIdentityCreation;
     if (stored.skipIdentityCreation) settings.skipIdentityCreation = stored.skipIdentityCreation;
     if (stored.debugLogging !== undefined) settings.debugLogging = stored.debugLogging;
+    if (stored.theme) settings.theme = stored.theme;
 
     console.log('Loaded settings:', settings);
   } catch (error) {
@@ -96,7 +99,8 @@ async function saveGlobalSettings() {
     await messenger.storage.local.set({
       offerIdentityCreation: settings.offerIdentityCreation,
       skipIdentityCreation: settings.skipIdentityCreation,
-      debugLogging: settings.debugLogging
+      debugLogging: settings.debugLogging,
+      theme: settings.theme
     });
 
     console.log('Global settings saved');
@@ -357,12 +361,19 @@ function createMethodOption(identityId, methodValue, labelText, helpText, checke
 }
 
 /**
- * Load identities and render account table
+ * Load the default identity of each account and render the account table.
+ * Non-default identities (e.g. those created by Feature 3 for aliases) are
+ * not shown; they keep default settings, so the background logic skips them.
  */
 async function loadAccounts() {
   try {
-    identities = await messenger.identities.list();
-    console.log('Loaded identities:', identities);
+    const accounts = await messenger.accounts.list();
+    identities = [];
+    for (const account of accounts) {
+      const defaultIdentity = await messenger.identities.getDefault(account.id);
+      if (defaultIdentity) identities.push(defaultIdentity);
+    }
+    console.log('Loaded default identities:', identities);
 
     const tbody = document.getElementById('accountTableBody');
 
@@ -429,6 +440,9 @@ function renderSkipList() {
 async function initialize() {
   console.log('Options page initializing...');
 
+  // Shows the installed build's version (build.sh rewrites it in the manifest)
+  document.getElementById('version').textContent = `v${messenger.runtime.getManifest().version}`;
+
   // Load settings and identities
   await loadSettings();
   await loadAccounts();
@@ -438,6 +452,15 @@ async function initialize() {
   checkbox.checked = settings.offerIdentityCreation;
   checkbox.addEventListener('change', async (e) => {
     settings.offerIdentityCreation = e.target.checked;
+    await saveGlobalSettings();
+  });
+
+  // Set up Theme select (applied live via theme/theme.js)
+  const themeSelect = document.getElementById('themeSelect');
+  themeSelect.value = settings.theme;
+  themeSelect.addEventListener('change', async (e) => {
+    settings.theme = e.target.value;
+    applyTheme(settings.theme);
     await saveGlobalSettings();
   });
 

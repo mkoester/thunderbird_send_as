@@ -1,0 +1,152 @@
+/* Shared styles for both prompt popups (alias-prompt, identity-prompt),
+   on the shared tokens (see ../theme/tokens.css). */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 1.25rem;
+  min-width: 400px;
+  max-width: 500px;
+}
+
+h2 {
+  font-size: 1.05rem;
+  color: var(--fg-strong);
+  margin-bottom: 0.75rem;
+}
+
+p {
+  color: var(--fg-muted);
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.info {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.75rem 0;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--link);
+  word-break: break-all;
+}
+
+label {
+  display: block;
+  margin: 1rem 0 0.3rem;
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+}
+
+input[type="text"] {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+input[type="text"][readonly] {
+  background: var(--surface);
+  color: var(--fg-muted);
+  cursor: not-allowed;
+}
+
+.example,
+.hint {
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+  margin-top: 0.3rem;
+}
+
+/* Two-option identity name chooser (identity-prompt) */
+
+.options-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.option-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.option-field {
+  flex: 1;
+}
+
+.option-field label {
+  margin-top: 0;
+}
+
+.option-row button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Buttons */
+
+button {
+  border-radius: 4px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--primary);
+  border: 1px solid var(--primary-hover);
+  color: var(--on-primary);
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--link);
+}
+
+.btn-secondary:hover {
+  background: var(--border);
+}
+
+.buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+}
+
+/* "Don't ask again" row */
+
+.checkbox-container {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.checkbox-container label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--fg);
+  cursor: pointer;
+}
