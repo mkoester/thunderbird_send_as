@@ -433,6 +433,9 @@ function renderSkipList() {
 async function initialize() {
   console.log('Options page initializing...');
 
+  // Shows the installed build's version (build.sh rewrites it in the manifest)
+  document.getElementById('version').textContent = `v${messenger.runtime.getManifest().version}`;
+
   // Load settings and identities
   await loadSettings();
   await loadAccounts();

@@ -27,6 +27,18 @@ h1 {
   color: var(--fg-strong);
 }
 
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.version {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+
 .header-logo {
   width: 48px;
   height: 48px;
