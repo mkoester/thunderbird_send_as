@@ -55,6 +55,11 @@ The build script:
   `window.close()`.
 - `processedComposeTabs` entries are dropped on `tabs.onRemoved` (tab ids can be
   reused).
+- **Options table shows one row per account** — the account's *default* identity
+  (`accounts.list()` + `identities.getDefault(accountId)`), not every identity.
+  Identities created by Feature 3 for aliases would otherwise flood the table.
+  They stay unconfigured (settings default to disabled), so `background.js` —
+  which still iterates **all** identities — skips them.
 
 ## UI design system (2026-07-03)
 

@@ -361,12 +361,19 @@ function createMethodOption(identityId, methodValue, labelText, helpText, checke
 }
 
 /**
- * Load identities and render account table
+ * Load the default identity of each account and render the account table.
+ * Non-default identities (e.g. those created by Feature 3 for aliases) are
+ * not shown; they keep default settings, so the background logic skips them.
  */
 async function loadAccounts() {
   try {
-    identities = await messenger.identities.list();
-    console.log('Loaded identities:', identities);
+    const accounts = await messenger.accounts.list();
+    identities = [];
+    for (const account of accounts) {
+      const defaultIdentity = await messenger.identities.getDefault(account.id);
+      if (defaultIdentity) identities.push(defaultIdentity);
+    }
+    console.log('Loaded default identities:', identities);
 
     const tbody = document.getElementById('accountTableBody');
 
