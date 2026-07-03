@@ -32,12 +32,22 @@ The build script:
 - `theme/` - Shared design system: `tokens.css` (color tokens, light + dark palettes) and `theme.js` (applies the stored theme)
 - `icons/` - Extension icons (48x48, 96x96)
 - `build.sh` - Build script (use this!) — runs the tests, then packages
+- `scripts/lint` - Runs `addons-linter` (via `pnpm dlx`/`npx`) on the newest
+  XPI in the parent dir (or a given path). This is the engine behind ATN's
+  upload check. Known-benign baseline (documented in the script header): 6
+  warnings (4× Thunderbird permissions unknown to the Firefox schemas, 2×
+  `data_collection_permissions` needs FF 140 vs. our 128 floor) plus a
+  `VERSION_FORMAT_INVALID` error on `-SNAPSHOT` dev builds only. Anything
+  beyond that needs fixing. Allowlisted in `.claude/settings.json`
 - `scripts/screenshot-ui` - Renders options + both popups to `screenshots/`
   (gitignored) in light and dark via a headless Chromium-family browser
   (`$SCREENSHOT_BROWSER` overrides autodetection); `hidden` elements are shown.
   Use it to review CSS changes without installing the XPI; allowlisted in
   `.claude/settings.json`
 - `LICENSE` - GPL-3.0 license
+- `PRIVACY.md` - Privacy policy (no data collection, no network requests);
+  `data_collection_permissions: { required: ["none"] }` is also declared in
+  `manifest.json` (inert below TB 140, honoured above)
 - `README.md` - User documentation
 - `INSTALL.md` - Installation guide
 - `DESIGN_OWN_DOMAIN.md` - Current technical specification (alias methods)

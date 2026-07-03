@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Lint the packaged extension with Mozilla's addons-linter — the engine behind
+# ATN's upload check (ATN runs Thunderbird's fork of it, which additionally
+# knows the Thunderbird API schemas; the fork is not published to npm).
+#
+# Lints the newest XPI in the parent directory unless a path is given:
+#   scripts/lint [path/to.xpi]
+#
+# Expected findings on this extension (all benign, anything else is real):
+#   - 4x MANIFEST_PERMISSIONS "Invalid permissions" for accountsRead,
+#     accountsIdentities, messagesRead, compose — Thunderbird permissions the
+#     Firefox-schema linter doesn't know; ATN's fork accepts them
+#   - 2x KEY_FIREFOX(_ANDROID)_UNSUPPORTED_BY_MIN_VERSION for
+#     data_collection_permissions — the key needs Firefox 140, our floor is
+#     128; it is inert below 140 and honoured above (same trade-off as the
+#     Bookmarks+ extension on AMO)
+#   - 1x VERSION_FORMAT_INVALID error on dev builds only: the -SNAPSHOT /
+#     commit-hash suffix is not a valid AMO version; clean release builds
+#     from main lint with 0 errors
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
+
+XPI="${1:-}"
+if [ -z "$XPI" ]; then
+    XPI=$(ls -t "$REPO_DIR"/../send-as-alias-*.xpi 2> /dev/null | head -1)
+fi
+if [ -z "$XPI" ] || [ ! -f "$XPI" ]; then
+    echo "Error: no XPI found — run ./build.sh first or pass a path" >&2
+    exit 1
+fi
+
+if command -v pnpm > /dev/null 2>&1; then
+    RUNNER="pnpm dlx"
+else
+    RUNNER="npx --yes"
+fi
+
+echo "Linting $XPI"
+$RUNNER addons-linter "$XPI"

@@ -173,8 +173,9 @@ The extension supports three alias methods (configured per-account):
 
 ## Privacy
 
-- All processing done locally in Thunderbird
-- No data sent to external servers
+- **No data collection** — declared in the manifest
+  (`data_collection_permissions: { required: ["none"] }`), see [PRIVACY.md](PRIVACY.md)
+- All processing done locally in Thunderbird; the extension makes no network requests
 - Settings stored in Thunderbird's local storage
 - Open source - audit the code yourself!
 
