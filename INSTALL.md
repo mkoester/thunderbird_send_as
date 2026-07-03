@@ -20,16 +20,17 @@
 #### Build the XPI file:
 
 ```bash
-cd /home/mk/src/thunderbird_send_as
-zip -r send-as-alias.xpi * -x ".*" -x "*.md" -x "DESIGN.md" -x "notes.md" -x "task_plan.md" -x "FEATURES.md" -x ".git/*"
+./build.sh
 ```
+
+The XPI lands in the parent directory as `send-as-alias-<version>.xpi`.
 
 #### Install in Thunderbird:
 
 1. Open Thunderbird
 2. Press `Ctrl+Shift+A` (Tools → Add-ons and Themes)
 3. Click the gear icon ⚙️ → "Install Add-on From File..."
-4. Select the `send-as-alias.xpi` file
+4. Select the `send-as-alias-<version>.xpi` file
 5. Click "Add" when prompted
 6. Restart Thunderbird if requested
 
@@ -124,7 +125,6 @@ To disable it:
 
 After installation, check out:
 - [README.md](README.md) - Feature overview and usage
-- [FEATURES.md](FEATURES.md) - Detailed feature descriptions
 - Extension settings page - Configure per your preferences
 
 Enjoy managing your email aliases! 📧

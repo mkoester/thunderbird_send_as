@@ -19,25 +19,58 @@ let settings = {
 // Track which compose windows we've already processed (to avoid duplicate handling)
 const processedComposeTabs = new Set();
 
+// Pending popup prompts, keyed by the popup's window id. Keying (instead of a
+// single global resolver) keeps concurrent compose windows independent, and
+// windows.onRemoved guarantees every promise settles even if the popup is
+// closed via the window manager without clicking a button.
+const pendingPrompts = new Map();
+
 /**
- * Handle messages from popup windows
+ * Handle responses from prompt popup windows
  */
 messenger.runtime.onMessage.addListener((message, sender) => {
-  if (message.type === 'aliasPromptResponse') {
-    // Call the stored resolve function from showAliasPrompt
-    if (window.pendingAliasPromptResolve) {
-      window.pendingAliasPromptResolve(message);
-      window.pendingAliasPromptResolve = null;
-    }
-  }
-  if (message.type === 'identityPromptResponse') {
-    // Call the stored resolve function from showCreateIdentityPrompt
-    if (window.pendingIdentityPromptResolve) {
-      window.pendingIdentityPromptResolve(message);
-      window.pendingIdentityPromptResolve = null;
+  if (message.type === 'aliasPromptResponse' || message.type === 'identityPromptResponse') {
+    const windowId = sender.tab && sender.tab.windowId;
+    const resolve = pendingPrompts.get(windowId);
+    if (resolve) {
+      pendingPrompts.delete(windowId);
+      resolve(message);
     }
   }
 });
+
+/**
+ * Popup closed without answering (window-manager close button, Escape handled
+ * by the WM, crash, …): resolve the pending prompt as cancelled so the
+ * awaiting compose flow never hangs.
+ */
+messenger.windows.onRemoved.addListener((windowId) => {
+  const resolve = pendingPrompts.get(windowId);
+  if (resolve) {
+    pendingPrompts.delete(windowId);
+    resolve({ cancelled: true });
+  }
+});
+
+// Closed compose tabs can have their ids reused by Thunderbird — forget them
+messenger.tabs.onRemoved.addListener((tabId) => {
+  processedComposeTabs.delete(tabId);
+});
+
+/**
+ * Open a prompt popup and wait for its response (or cancellation on close)
+ */
+async function showPromptWindow(url, height) {
+  const win = await messenger.windows.create({
+    url: url,
+    type: 'popup',
+    width: 550,
+    height: height
+  });
+  return new Promise((resolve) => {
+    pendingPrompts.set(win.id, resolve);
+  });
+}
 
 /**
  * Initialize extension
@@ -197,66 +230,9 @@ async function loadBaseEmails() {
   }
 }
 
-/**
- * Extract email address from various formats
- * Handles: "Name <email@domain.com>" or "email@domain.com"
- */
-function extractEmail(recipient) {
-  if (!recipient) return null;
-
-  // Handle string or object format
-  const str = typeof recipient === 'string' ? recipient : recipient.address || '';
-
-  // Extract email from "Name <email>" format
-  const match = str.match(/<(.+?)>/);
-  if (match) {
-    return match[1].toLowerCase();
-  }
-
-  return str.trim().toLowerCase();
-}
-
-/**
- * Extract domain from email address
- */
-function extractDomain(email) {
-  const match = email.match(/@(.+)$/);
-  return match ? match[1] : null;
-}
-
-/**
- * Extract base based on method
- * For plus-addressing: strips +alias part
- * For own-domain/catchall: returns domain only
- */
-function extractBase(email, method) {
-  if (method === 'plus') {
-    // Strip +alias part
-    const match = email.match(/^([^+@]+)(\+[^@]+)?@(.+)$/);
-    return match ? `${match[1]}@${match[3]}` : email;
-  } else if (method === 'own-domain' || method === 'catchall') {
-    // Extract just the domain
-    return extractDomain(email);
-  }
-  return email;
-}
-
-/**
- * Check if email matches identity base for given method
- */
-function matchesBase(email, identity, method) {
-  if (method === 'plus') {
-    // Traditional plus-addressing
-    const emailBase = extractBase(email, 'plus');
-    return emailBase === identity.email && emailBase !== email;
-  } else if (method === 'own-domain' || method === 'catchall') {
-    // Domain matching
-    const emailDomain = extractDomain(email);
-    const identityDomain = extractDomain(identity.email);
-    return emailDomain === identityDomain && email !== identity.email;
-  }
-  return false;
-}
+// extractEmail / extractDomain / extractBase / matchesBase / aliasNamePart are
+// defined in shared/alias-utils.js, loaded before this file (manifest.json
+// background.scripts) — kept separate so they can be unit-tested under Node.
 
 /**
  * FEATURE 1: Find matching alias in recipients (method-aware)
@@ -310,23 +286,12 @@ async function findMatchingAlias(recipients) {
  * Opens a popup window and waits for user response
  */
 async function showAliasPrompt(fromEmail, toEmail, method, domain) {
-  return new Promise((resolve) => {
-    // Store the resolve function so we can call it when we get the response
-    window.pendingAliasPromptResolve = resolve;
-
-    // Build URL with method and domain parameters
-    let url = `popup/alias-prompt.html?from=${encodeURIComponent(fromEmail)}&to=${encodeURIComponent(toEmail || '')}&method=${encodeURIComponent(method)}`;
-    if (domain) {
-      url += `&domain=${encodeURIComponent(domain)}`;
-    }
-
-    messenger.windows.create({
-      url: url,
-      type: 'popup',
-      width: 550,
-      height: 400
-    });
-  });
+  // Build URL with method and domain parameters
+  let url = `popup/alias-prompt.html?from=${encodeURIComponent(fromEmail)}&to=${encodeURIComponent(toEmail || '')}&method=${encodeURIComponent(method)}`;
+  if (domain) {
+    url += `&domain=${encodeURIComponent(domain)}`;
+  }
+  return showPromptWindow(url, 400);
 }
 
 /**
@@ -334,26 +299,15 @@ async function showAliasPrompt(fromEmail, toEmail, method, domain) {
  * Opens a popup window and waits for user response
  */
 async function showCreateIdentityPrompt(options) {
-  return new Promise((resolve) => {
-    // Store the resolve function so we can call it when we get the response
-    window.pendingIdentityPromptResolve = resolve;
-
-    // Open popup window
-    const url = `popup/identity-prompt.html?email=${encodeURIComponent(options.email)}&baseName=${encodeURIComponent(options.baseName)}`;
-    messenger.windows.create({
-      url: url,
-      type: 'popup',
-      width: 550,
-      height: 300
-    });
-  });
+  const url = `popup/identity-prompt.html?email=${encodeURIComponent(options.email)}&baseName=${encodeURIComponent(options.baseName)}&aliasName=${encodeURIComponent(options.aliasName || '')}`;
+  return showPromptWindow(url, 300);
 }
 
 /**
  * FEATURE 3: Maybe create identity for new alias
  */
-async function maybeCreateIdentity(aliasEmail, baseEmail) {
-  debugLog(`Send As Alias: maybeCreateIdentity called with aliasEmail: ${aliasEmail}, baseEmail: ${baseEmail}`);
+async function maybeCreateIdentity(aliasEmail, baseEmail, method) {
+  debugLog(`Send As Alias: maybeCreateIdentity called with aliasEmail: ${aliasEmail}, baseEmail: ${baseEmail}, method: ${method}`);
 
   try {
     // Check if this alias already exists as an identity
@@ -382,9 +336,10 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
 
     debugLog(`Send As Alias: Found base identity: ${baseIdentity.name} <${baseIdentity.email}>`);
 
-    // Extract alias name from email
-    const aliasName = aliasEmail.split('+')[1].split('@')[0];
-    const suggestedName = `${baseIdentity.name} (${aliasName})`;
+    // Method-aware alias name: "shopping" from user+shopping@… (plus),
+    // "sales" from sales@… (own-domain/catchall)
+    const aliasName = aliasNamePart(aliasEmail, method);
+    const suggestedName = aliasName ? `${baseIdentity.name} (${aliasName})` : baseIdentity.name;
 
     debugLog(`Send As Alias: Prompting to create identity: ${suggestedName}`);
 
@@ -392,7 +347,8 @@ async function maybeCreateIdentity(aliasEmail, baseEmail) {
     const result = await showCreateIdentityPrompt({
       email: aliasEmail,
       suggestedName: suggestedName,
-      baseName: baseIdentity.name
+      baseName: baseIdentity.name,
+      aliasName: aliasName
     });
 
     debugLog(`Send As Alias: Identity prompt result:`, result);
@@ -434,6 +390,8 @@ async function handleCompose(tab, composeDetails) {
 
     let aliasWasSet = false;
     let usedAlias = null;
+    let usedIdentity = null; // base identity the alias belongs to (for Feature 3)
+    let usedMethod = null;
 
     // FEATURE 1: Auto-detect alias for replies/forwards
     if (composeDetails.relatedMessageId) {
@@ -460,6 +418,8 @@ async function handleCompose(tab, composeDetails) {
             aliasWasSet = true;
             // Extract just the email for Feature 3 (match.alias might be "Name" <email@domain.com>)
             usedAlias = extractEmail(match.alias);
+            usedIdentity = match.identity;
+            usedMethod = match.method;
           } catch (setError) {
             errorLog('Send As Alias: Feature 1 - Error setting From:', setError);
           }
@@ -522,6 +482,8 @@ async function handleCompose(tab, composeDetails) {
                   await messenger.compose.setComposeDetails(tab.id, { from: aliasWithName });
                   debugLog(`Send As Alias: Feature 2 - Set From to ${aliasWithName}`);
                   usedAlias = aliasEmail;
+                  usedIdentity = currentIdentity;
+                  usedMethod = method;
                 } else if (result.dontAskAgain) {
                   // Save to dontAskAgain list for this account
                   accountSettings.feature2DontAskList = accountSettings.feature2DontAskList || [];
@@ -543,14 +505,12 @@ async function handleCompose(tab, composeDetails) {
     }
 
     // FEATURE 3: Offer to create identity for new alias
-    if (usedAlias && settings.offerIdentityCreation) {
+    if (usedAlias && usedIdentity && settings.offerIdentityCreation) {
       try {
-        // Extract base email from the alias
-        const [localPart, domain] = usedAlias.split('@');
-        const baseLocal = localPart.split('+')[0];
-        const baseEmail = `${baseLocal}@${domain}`;
-
-        await maybeCreateIdentity(usedAlias, baseEmail);
+        // The base is the identity the alias was derived from — no string
+        // parsing needed (parsing broke for own-domain/catchall aliases,
+        // where the alias contains no "+" and its local part isn't the base)
+        await maybeCreateIdentity(usedAlias, usedIdentity.email, usedMethod);
       } catch (error) {
         errorLog('Send As Alias: Error in Feature 3:', error);
       }

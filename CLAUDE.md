@@ -28,15 +28,36 @@ The build script:
 ## Project Structure
 
 - `manifest.json` - Extension metadata and version (single source of truth for version)
-- `background.js` - Main extension logic
+- `background.js` - Main extension logic (event handling, features 1-3 orchestration)
+- `shared/alias-utils.js` - Pure alias/email helpers (`extractEmail`, `extractDomain`, `extractBase`, `matchesBase`, `aliasNamePart`). Loaded as a plain script **before** `background.js` (manifest `background.scripts` order, attaches to `globalThis`) and `require()`d by the unit tests under Node
+- `tests/alias-utils.test.js` - Unit tests (`node --test tests/*.test.js`, run automatically by `build.sh` before packaging)
 - `popup/` - HTML/JS for user-facing dialogs (alias prompt, identity creation)
 - `options/` - Settings page UI
 - `icons/` - Extension icons (48x48, 96x96)
-- `build.sh` - Build script (use this!)
+- `build.sh` - Build script (use this!) — runs the tests, then packages
 - `LICENSE` - GPL-3.0 license
 - `README.md` - User documentation
+- `INSTALL.md` - Installation guide
+- `DESIGN_OWN_DOMAIN.md` - Current technical specification (alias methods)
 - `WAYLAND.md` - Configuration guide for Wayland window managers
+- `docs/archive/` - Historical plan/design/debug docs (superseded; kept for reference)
 - `CLAUDE.md` - This file
+
+## Architecture notes (2026-07-03 fixes)
+
+- **Feature 3 is method-aware.** The base identity for a used alias is carried
+  through `handleCompose` (`usedIdentity`/`usedMethod`) instead of being re-derived
+  by string-splitting on `+` — the old parsing crashed for own-domain/catchall
+  aliases (no `+` present). `aliasNamePart(aliasEmail, method)` produces the
+  human alias name for identity naming, and the identity-prompt popup receives it
+  as a URL parameter instead of re-parsing the email.
+- **Prompt popups can't hang the compose flow.** Pending prompt resolvers live in
+  a `Map` keyed by popup window id (concurrent compose windows stay independent);
+  `windows.onRemoved` resolves an unanswered prompt as `{ cancelled: true }`
+  (treated as "skip"). Popups send their response **before** calling
+  `window.close()`.
+- `processedComposeTabs` entries are dropped on `tabs.onRemoved` (tab ids can be
+  reused).
 
 ## Important Notes
 
