@@ -58,12 +58,32 @@ The build script:
   dropped resolver silently ate the popup's response — identity never created,
   no error. Now the popup echoes `aliasEmail`/`baseEmail`/`identityName` in its
   runtime message and `handleIdentityPromptResponse` creates the identity
-  directly in the `onMessage` handler, no pending state needed. Only the alias
+  directly in the `onMessage` handler, no pending state needed. The compose
+  tab id travels along so the still-open compose window can be updated.
+  **Hard TB limitation** (verified in comm-esr128 source): a compose window
+  cannot switch to an identity created *after* it opened — `ext-compose.js`
+  resolves `identityId` against the window's identity dropdown (populated at
+  window open), sets `selectedItem = undefined` when there is no menu item,
+  and crashes in `LoadIdentity`; after that even plain `from` overrides crash
+  (`MakeFromFieldEditable` reads `selectedItem.value`). So for the just-created
+  case only the From header is overridden (with the new identity's name); that
+  message is sent from the base identity, and the real identity applies from
+  the next compose on via `applyAliasToCompose` (safe there: those windows
+  always open after the identity already existed, so the menu item is present).
+  Only the alias
   prompt (Feature 2) still uses the resolver map, because its response must
   reach the compose flow awaiting it; a dropped alias response is now at least
   `errorLog`ged instead of silent.
 - `processedComposeTabs` entries are dropped on `tabs.onRemoved` (tab ids can be
   reused).
+- **Existing alias identities are used, not clobbered** (`applyAliasToCompose`):
+  when Feature 1/2 resolves an alias that already has its own identity, the
+  compose window is switched to it via `setComposeDetails({ identityId })` — so
+  that identity's name/signature apply. Building the From string from the
+  *base* identity's name (the old behaviour) produced mixtures like
+  `Mirko Köster <it@…>` for an identity named `Mirko Köster IT`. Only when no
+  identity exists yet is the From header overridden, and only then does
+  Feature 3 offer creation.
 - **Options table shows one row per account** — the account's *default* identity
   (`accounts.list()` + `identities.getDefault(accountId)`), not every identity.
   Identities created by Feature 3 for aliases would otherwise flood the table.

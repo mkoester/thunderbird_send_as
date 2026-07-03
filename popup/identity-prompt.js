@@ -3,6 +3,7 @@ const params = new URLSearchParams(window.location.search);
 const email = params.get('email');
 const baseName = params.get('baseName');
 const baseEmail = params.get('baseEmail');
+const composeTabId = params.get('tabId') ? Number(params.get('tabId')) : null;
 // Alias name is derived method-aware in the background (aliasNamePart) and
 // passed along — plus: "shopping" from user+shopping@…, own-domain/catchall:
 // the local part (e.g. "sales" from sales@…)
@@ -18,6 +19,7 @@ function sendResponse(create, identityName) {
     identityName: identityName,
     aliasEmail: email,
     baseEmail: baseEmail,
+    composeTabId: composeTabId,
     dontAskAgain: document.getElementById('dontAskAgain').checked
   }).finally(() => window.close());
 }
