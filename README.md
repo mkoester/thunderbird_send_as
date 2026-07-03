@@ -77,6 +77,11 @@ Offers to save new aliases as Thunderbird identities when you use them for the f
 
 ## Installation
 
+### From Thunderbird Add-ons (Recommended)
+
+Install from the official add-on listing:
+[addons.thunderbird.net/thunderbird/addon/send-as-alias](https://addons.thunderbird.net/thunderbird/addon/send-as-alias/)
+
 ### From Source (Development)
 
 1. Clone or download this repository
