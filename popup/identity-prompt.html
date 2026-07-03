@@ -3,92 +3,9 @@
 <head>
   <meta charset="utf-8">
   <title>Send As Alias - Create Identity?</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 20px;
-      min-width: 400px;
-      max-width: 500px;
-    }
-    h2 {
-      margin-top: 0;
-      font-size: 16px;
-      color: #333;
-    }
-    p {
-      color: #666;
-      margin: 10px 0;
-    }
-    .info {
-      background: #f5f5f5;
-      padding: 10px;
-      border-radius: 4px;
-      margin: 15px 0;
-      font-family: monospace;
-      font-size: 13px;
-    }
-    label {
-      display: block;
-      margin: 15px 0 5px 0;
-      font-weight: 500;
-      color: #333;
-    }
-    input[type="text"] {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 14px;
-      box-sizing: border-box;
-    }
-    .hint {
-      font-size: 12px;
-      color: #999;
-      margin-top: 3px;
-    }
-    .buttons {
-      margin-top: 20px;
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-    }
-    button {
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-    .btn-primary {
-      background: #0060df;
-      color: white;
-    }
-    .btn-primary:hover {
-      background: #003eaa;
-    }
-    .btn-secondary {
-      background: #f0f0f0;
-      color: #333;
-    }
-    .btn-secondary:hover {
-      background: #e0e0e0;
-    }
-    .checkbox-container {
-      margin-top: 15px;
-      padding-top: 15px;
-      border-top: 1px solid #e0e0e0;
-    }
-    .checkbox-container label {
-      display: flex;
-      align-items: center;
-      font-weight: normal;
-      cursor: pointer;
-    }
-    .checkbox-container input[type="checkbox"] {
-      margin-right: 8px;
-      width: auto;
-    }
-  </style>
+  <link rel="stylesheet" href="../theme/tokens.css">
+  <link rel="stylesheet" href="prompt.css">
+  <script src="../theme/theme.js"></script>
 </head>
 <body>
   <h2>Save alias as identity?</h2>
@@ -96,33 +13,25 @@
   <p>You're using this alias:</p>
   <div class="info" id="aliasEmail"></div>
 
-  <p style="margin-top: 20px; margin-bottom: 10px;">Choose identity name:</p>
+  <p>Choose identity name:</p>
 
-  <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-direction: column;">
+  <div class="options-stack">
     <!-- Option 1: Editable -->
-    <div style="display: flex; gap: 10px; align-items: flex-start;">
-      <div style="flex: 1;">
-        <label style="display: block; margin-bottom: 5px; font-weight: normal;">
-          Option 1: Keep original name (editable)
-        </label>
-        <input type="text" id="nameOnlyInput" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+    <div class="option-row">
+      <div class="option-field">
+        <label for="nameOnlyInput">Option 1: Keep original name (editable)</label>
+        <input type="text" id="nameOnlyInput">
       </div>
-      <button class="btn-primary" id="useNameOnlyBtn" style="padding: 8px 16px; margin-top: 24px;">
-        Use this
-      </button>
+      <button class="btn-primary" id="useNameOnlyBtn">Use this</button>
     </div>
 
     <!-- Option 2: Read-only -->
-    <div style="display: flex; gap: 10px; align-items: flex-start;">
-      <div style="flex: 1;">
-        <label style="display: block; margin-bottom: 5px; font-weight: normal;">
-          Option 2: Add alias in name
-        </label>
-        <input type="text" id="nameWithAliasInput" readonly style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; background: #f5f5f5; cursor: not-allowed;">
+    <div class="option-row">
+      <div class="option-field">
+        <label for="nameWithAliasInput">Option 2: Add alias in name</label>
+        <input type="text" id="nameWithAliasInput" readonly>
       </div>
-      <button class="btn-secondary" id="useNameWithAliasBtn" style="padding: 8px 16px; margin-top: 24px;">
-        Use this
-      </button>
+      <button class="btn-secondary" id="useNameWithAliasBtn">Use this</button>
     </div>
   </div>
 

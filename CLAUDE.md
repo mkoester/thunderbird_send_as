@@ -2,10 +2,6 @@
 
 This document contains important instructions for Claude Code when working on this project.
 
-## Workflow
-
-**CRITICAL:** If the `planning-with-files` skill is available, ALWAYS use it for complex tasks, multi-step projects, or any work that requires planning and progress tracking. This skill helps maintain structured planning files and ensures nothing is missed.
-
 ## Building the Extension
 
 **IMPORTANT:** Always use the `./build.sh` script to create XPI files. Never use manual `zip` commands.
@@ -31,8 +27,9 @@ The build script:
 - `background.js` - Main extension logic (event handling, features 1-3 orchestration)
 - `shared/alias-utils.js` - Pure alias/email helpers (`extractEmail`, `extractDomain`, `extractBase`, `matchesBase`, `aliasNamePart`). Loaded as a plain script **before** `background.js` (manifest `background.scripts` order, attaches to `globalThis`) and `require()`d by the unit tests under Node
 - `tests/alias-utils.test.js` - Unit tests (`node --test tests/*.test.js`, run automatically by `build.sh` before packaging)
-- `popup/` - HTML/JS for user-facing dialogs (alias prompt, identity creation)
-- `options/` - Settings page UI
+- `popup/` - HTML/JS for user-facing dialogs (alias prompt, identity creation); `popup/prompt.css` is the stylesheet shared by both dialogs
+- `options/` - Settings page UI (`options.css` holds its styles)
+- `theme/` - Shared design system: `tokens.css` (color tokens, light + dark palettes) and `theme.js` (applies the stored theme)
 - `icons/` - Extension icons (48x48, 96x96)
 - `build.sh` - Build script (use this!) — runs the tests, then packages
 - `LICENSE` - GPL-3.0 license
@@ -58,6 +55,27 @@ The build script:
   `window.close()`.
 - `processedComposeTabs` entries are dropped on `tabs.onRemoved` (tab ids can be
   reused).
+
+## UI design system (2026-07-03)
+
+The UI design is ported from the Bookmarks+ extension (`linkding-ext` repo) and shared
+across all three pages (options, alias-prompt, identity-prompt):
+
+- **Tokens, not hardcoded colors.** All colors are CSS custom properties defined once in
+  `theme/tokens.css` (light default, dark via `prefers-color-scheme`, plus pinned
+  `data-theme` variants). Page stylesheets (`options/options.css`, `popup/prompt.css`)
+  only reference `var(--…)` tokens — never add hex colors to page CSS; extend the token
+  file in **all three blocks** (light / OS-dark / pinned-dark) instead.
+- **Theme selection**: stored as a flat `theme` key (`"system"` | `"light"` | `"dark"`)
+  in `messenger.storage.local`, picked in the options page "Appearance" section.
+  `theme/theme.js` is loaded as the **first** script in each page's `<head>`; it pins
+  `data-theme` on `<html>` for light/dark or removes the attribute for system.
+- **Conventions** (match Bookmarks+): `system-ui` font, rem sizing, section `h2`s are
+  uppercase + `--fg-muted` + letter-spacing, panels are `--surface` + 1px `--border` +
+  6px radius, inputs/buttons on `--surface-2` with 4px radius, primary buttons on
+  `--primary`/`--on-primary`. `color-scheme` is set per theme so native controls follow.
+- **No inline styles in HTML** — everything lives in the linked stylesheets. JS only
+  toggles `display` (status message, conflict warning), never colors.
 
 ## Important Notes
 
