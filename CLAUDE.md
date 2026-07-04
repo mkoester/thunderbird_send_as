@@ -151,7 +151,7 @@ across all three pages (options, alias-prompt, identity-prompt):
 
 ### Git Workflow
 - Main branch: `main` (not `master`)
-- Version bumps happen in `manifest.json`
+- Version bumps happen in `manifest.json` — bump the patch **once, right after a release, on `develop` only** (`main`'s version changes only when a release is merged into it). No bump-per-test-build: intermediate builds are already identifiable by the hash/`-SNAPSHOT` decoration
 - Build script automatically handles dev/snapshot versioning
 
 ### Branch Naming Convention (Git Flow)
@@ -180,10 +180,11 @@ Follow git flow conventions for branch naming:
 
 ### Creating a Release Build
 1. Ensure you're on `main` branch
-2. Update version in `manifest.json`
+2. Verify the version in `manifest.json` (it was already bumped right after the previous release)
 3. Commit all changes
 4. Run `./build.sh`
 5. XPI will be in parent directory with clean version number
+6. After the release is published: bump the patch version in `manifest.json` on `develop` (next working version; `main` keeps the released version)
 
 ### Creating a Development Build
 1. Make your changes
