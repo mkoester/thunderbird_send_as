@@ -22,9 +22,9 @@
   <div id="statusMessage" class="status-message"></div>
 
   <div id="setupHint" class="setup-hint" hidden>
-    Send As Alias is currently <strong>inactive</strong>: enable Auto-Reply for at
-    least one account below and select its alias method. All features are opt-in
-    per account.
+    Send As Alias is currently <strong>inactive</strong>: enable Reply as Alias
+    for at least one account below and select its alias method. All features are
+    opt-in per account.
   </div>
 
   <!-- Account Settings -->
@@ -39,7 +39,7 @@
         <tr>
           <th>Account</th>
           <th>Display Name</th>
-          <th class="checkbox-cell">Auto-Reply</th>
+          <th class="checkbox-cell">Reply as Alias</th>
           <th>Alias Method</th>
           <th class="checkbox-cell">Suggest Alias</th>
         </tr>
@@ -54,9 +54,9 @@
 
   <hr class="section-divider">
 
-  <!-- Feature 3: Identity Creation -->
+  <!-- Identity Creation -->
   <div class="section">
-    <h2>Identity Creation (Feature 3)</h2>
+    <h2>Identity Creation</h2>
     <p class="description">
       Automatically offer to save new aliases as Thunderbird identities.
     </p>
@@ -114,6 +114,7 @@
     </p>
   </div>
 
+  <script src="../shared/alias-utils.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

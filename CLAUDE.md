@@ -21,11 +21,29 @@ The build script:
 ./build.sh
 ```
 
+## Feature names
+
+The three features were referred to by number during early development
+("Feature 1/2/3"); renamed on 2026-07-06. Canonical names, used everywhere
+(code, docs, UI):
+
+| Old | Name | What it does | Per-account storage keys |
+|---|---|---|---|
+| Feature 1 | **Reply as Alias** | Sets From to the matching alias on reply/forward | `replyAsAliasEnabled` (+ `aliasMethod`) |
+| Feature 2 | **Alias Suggestion** | Prompts for an alias when composing from a base address | `suggestAliasEnabled`, `suggestAliasDontAskList` |
+| Feature 3 | **Identity Creation** | Offers to save a newly used alias as a Thunderbird identity | global: `offerIdentityCreation`, `skipIdentityCreation` (always had these names) |
+
+`migrateAccountSettings` in `shared/alias-utils.js` (pure, unit-tested) renames
+the old `feature1Enabled`/`feature2Enabled`/`feature2DontAskList` keys found in
+existing installs' `storage.local`; `loadSettings` in `background.js` runs it
+and persists when anything changed. Old feature numbers survive only in
+`docs/archive/` and in `DESIGN_OWN_DOMAIN.md` (which carries a naming note).
+
 ## Project Structure
 
 - `manifest.json` - Extension metadata and version (single source of truth for version)
-- `background.js` - Main extension logic (event handling, features 1-3 orchestration)
-- `shared/alias-utils.js` - Pure alias/email helpers (`extractEmail`, `extractDomain`, `extractBase`, `matchesBase`, `aliasNamePart`). Loaded as a plain script **before** `background.js` (manifest `background.scripts` order, attaches to `globalThis`) and `require()`d by the unit tests under Node
+- `background.js` - Main extension logic (event handling, orchestration of the three features)
+- `shared/alias-utils.js` - Pure helpers (`extractEmail`, `extractDomain`, `extractBase`, `matchesBase`, `aliasNamePart`, `migrateAccountSettings`). Loaded as a plain script **before** `background.js` (manifest `background.scripts` order, attaches to `globalThis`), also loaded by `options/options.html`, and `require()`d by the unit tests under Node
 - `tests/alias-utils.test.js` - Unit tests (`node --test tests/*.test.js`, run automatically by `build.sh` before packaging)
 - `popup/` - HTML/JS for user-facing dialogs (alias prompt, identity creation); `popup/prompt.css` is the stylesheet shared by both dialogs
 - `options/` - Settings page UI (`options.css` holds its styles)
@@ -50,14 +68,14 @@ The build script:
   `manifest.json` (inert below TB 140, honoured above)
 - `README.md` - User documentation
 - `INSTALL.md` - Installation guide
-- `DESIGN_OWN_DOMAIN.md` - Current technical specification (alias methods)
+- `DESIGN_OWN_DOMAIN.md` - Design doc for the alias-methods rework (historical; carries a naming note mapping Feature 1/2/3 to the current names)
 - `WAYLAND.md` - Configuration guide for Wayland window managers
 - `docs/archive/` - Historical plan/design/debug docs (superseded; kept for reference)
 - `CLAUDE.md` - This file
 
 ## Architecture notes (2026-07-03 fixes)
 
-- **Feature 3 is method-aware.** The base identity for a used alias is carried
+- **Identity Creation is method-aware.** The base identity for a used alias is carried
   through `handleCompose` (`usedIdentity`/`usedMethod`) instead of being re-derived
   by string-splitting on `+` — the old parsing crashed for own-domain/catchall
   aliases (no `+` present). `aliasNamePart(aliasEmail, method)` produces the
@@ -68,7 +86,7 @@ The build script:
   `windows.onRemoved` resolves an unanswered prompt as `{ cancelled: true }`
   (treated as "skip"). Popups send their response **before** calling
   `window.close()`.
-- **The identity prompt (Feature 3) is stateless** (2026-07-03 bug fix): the
+- **The identity prompt (Identity Creation) is stateless** (2026-07-03 bug fix): the
   in-memory resolver map does **not** survive MV3 event-page restarts, and a
   dropped resolver silently ate the popup's response — identity never created,
   no error. Now the popup echoes `aliasEmail`/`baseEmail`/`identityName` in its
@@ -86,27 +104,27 @@ The build script:
   the next compose on via `applyAliasToCompose` (safe there: those windows
   always open after the identity already existed, so the menu item is present).
   Only the alias
-  prompt (Feature 2) still uses the resolver map, because its response must
+  prompt (Alias Suggestion) still uses the resolver map, because its response must
   reach the compose flow awaiting it; a dropped alias response is now at least
   `errorLog`ged instead of silent.
 - `processedComposeTabs` entries are dropped on `tabs.onRemoved` (tab ids can be
   reused).
 - **Existing alias identities are used, not clobbered** (`applyAliasToCompose`):
-  when Feature 1/2 resolves an alias that already has its own identity, the
+  when Reply as Alias or Alias Suggestion resolves an alias that already has its own identity, the
   compose window is switched to it via `setComposeDetails({ identityId })` — so
   that identity's name/signature apply. Building the From string from the
   *base* identity's name (the old behaviour) produced mixtures like
   `Mirko Köster <it@…>` for an identity named `Mirko Köster IT`. Only when no
   identity exists yet is the From header overridden, and only then does
-  Feature 3 offer creation.
+  Identity Creation offer to create one.
 - **First-run onboarding** (issue #1): `runtime.onInstalled` (reason
   `install`) opens the options page, and the options page shows a warning-style
   setup hint (`#setupHint`, `updateSetupHint()`) while no account has
-  Auto-Reply enabled — without that the extension is entirely inactive, which
+  Reply as Alias enabled — without that the extension is entirely inactive, which
   confused users ("no configuration needed" was in old docs).
 - **Options table shows one row per account** — the account's *default* identity
   (`accounts.list()` + `identities.getDefault(accountId)`), not every identity.
-  Identities created by Feature 3 for aliases would otherwise flood the table.
+  Identities created by Identity Creation for aliases would otherwise flood the table.
   They stay unconfigured (settings default to disabled), so `background.js` —
   which still iterates **all** identities — skips them.
 

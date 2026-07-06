@@ -29,10 +29,10 @@ for_window [app_id="thunderbird" title="^Send As Alias - "] floating enable, res
 If you want more specific rules for each popup type:
 
 ```sway
-# Alias suggestion popup (Feature 2)
+# Alias suggestion popup
 for_window [app_id="thunderbird" title="^Send As Alias - Use Alias\?"] floating enable, resize set 550 300
 
-# Identity creation popup (Feature 3)
+# Identity creation popup
 for_window [app_id="thunderbird" title="^Send As Alias - Create Identity\?"] floating enable, resize set 550 300
 ```
 
@@ -155,7 +155,7 @@ Use niri's keybindings to manually toggle floating for the popup windows when th
 
 1. Restart or reload your window manager after adding the rules
 2. Open Thunderbird
-3. Trigger a popup (e.g., compose a new email if Feature 2 is enabled)
+3. Trigger a popup (e.g., compose a new email if Alias Suggestion is enabled)
 4. The popup should now appear as a floating window
 
 ---

@@ -7,10 +7,10 @@
 let baseEmails = [];
 let identities = []; // Store all identities for method-aware matching
 let settings = {
-  // NEW: Per-account settings (by identity ID)
-  accountSettings: {},       // { "identityId": { feature1Enabled, aliasMethod, feature2Enabled, feature2DontAskList } }
+  // Per-account settings (by identity ID)
+  accountSettings: {},       // { "identityId": { replyAsAliasEnabled, aliasMethod, suggestAliasEnabled, suggestAliasDontAskList } }
 
-  // UNCHANGED: Global Feature 3 settings
+  // Global Identity Creation settings
   offerIdentityCreation: true, // Global setting
   skipIdentityCreation: [],  // Array of aliases to skip: ["user+temp@domain.com"]
   debugLogging: false        // Enable debug console logging (default: false)
@@ -128,7 +128,17 @@ async function loadSettings() {
       Object.assign(stored, newStored);
     }
 
-    if (stored.accountSettings) settings.accountSettings = stored.accountSettings;
+    if (stored.accountSettings) {
+      // Rename historical featureN keys (feature1 → replyAsAlias, feature2 →
+      // suggestAlias) in place; persisting triggers storage.onChanged →
+      // loadSettings once more, which then finds nothing left to migrate
+      const migration = migrateAccountSettings(stored.accountSettings);
+      if (migration.changed) {
+        infoLog('Send As Alias: Renaming featureN settings keys to descriptive names...');
+        await messenger.storage.local.set({ accountSettings: migration.accountSettings });
+      }
+      settings.accountSettings = migration.accountSettings;
+    }
     if (stored.offerIdentityCreation !== undefined) settings.offerIdentityCreation = stored.offerIdentityCreation;
     if (stored.skipIdentityCreation) settings.skipIdentityCreation = stored.skipIdentityCreation;
     if (stored.debugLogging !== undefined) settings.debugLogging = stored.debugLogging;
@@ -142,10 +152,10 @@ async function loadSettings() {
 /**
  * Migrate settings from old format to new per-account format
  * Old format:
- *   - promptForAlias: ["user@domain.com", ...]  (emails where Feature 2 was enabled)
+ *   - promptForAlias: ["user@domain.com", ...]  (emails where Alias Suggestion was enabled)
  *   - dontAskAgain: [["from@domain.com", "to@domain.com"], ...]  (pairs to skip)
  * New format:
- *   - accountSettings: { "identityId": { feature1Enabled, aliasMethod, feature2Enabled, feature2DontAskList } }
+ *   - accountSettings: { "identityId": { replyAsAliasEnabled, aliasMethod, suggestAliasEnabled, suggestAliasDontAskList } }
  */
 async function migrateSettings(stored) {
   try {
@@ -157,7 +167,7 @@ async function migrateSettings(stored) {
     const accountSettings = {};
 
     for (const identity of allIdentities) {
-      const wasFeature2Enabled = oldPromptForAlias.includes(identity.email);
+      const wasSuggestAliasEnabled = oldPromptForAlias.includes(identity.email);
 
       // Build don't-ask list for this identity from old format
       const dontAskList = [];
@@ -169,10 +179,10 @@ async function migrateSettings(stored) {
 
       // Create settings for this identity
       accountSettings[identity.id] = {
-        feature1Enabled: false,              // Default: disabled (opt-in)
-        aliasMethod: 'plus',                 // Default: plus-addressing
-        feature2Enabled: wasFeature2Enabled, // Preserve old Feature 2 state
-        feature2DontAskList: dontAskList     // Migrate don't-ask list
+        replyAsAliasEnabled: false,                    // Default: disabled (opt-in)
+        aliasMethod: 'plus',                        // Default: plus-addressing
+        suggestAliasEnabled: wasSuggestAliasEnabled, // Preserve old opt-in state
+        suggestAliasDontAskList: dontAskList        // Migrate don't-ask list
       };
     }
 
@@ -198,10 +208,10 @@ function getAccountSettings(identityId) {
 
   // Return default settings if not configured
   return {
-    feature1Enabled: false,
+    replyAsAliasEnabled: false,
     aliasMethod: 'plus',
-    feature2Enabled: false,
-    feature2DontAskList: []
+    suggestAliasEnabled: false,
+    suggestAliasDontAskList: []
   };
 }
 
@@ -248,7 +258,7 @@ async function loadBaseEmails() {
 // background.scripts) — kept separate so they can be unit-tested under Node.
 
 /**
- * FEATURE 1: Find matching alias in recipients (method-aware)
+ * REPLY AS ALIAS: Find matching alias in recipients (method-aware)
  * Returns { alias: recipient, identity: identity, method: method } or null
  */
 async function findMatchingAlias(recipients) {
@@ -261,8 +271,8 @@ async function findMatchingAlias(recipients) {
   for (const identity of identities) {
     const accountSettings = getAccountSettings(identity.id);
 
-    // Skip if Feature 1 is disabled for this account
-    if (!accountSettings.feature1Enabled) {
+    // Skip if Reply as Alias is disabled for this account
+    if (!accountSettings.replyAsAliasEnabled) {
       continue;
     }
 
@@ -295,7 +305,7 @@ async function findMatchingAlias(recipients) {
 }
 
 /**
- * FEATURE 2: Show alias suggestion prompt (method-aware)
+ * ALIAS SUGGESTION: Show alias suggestion prompt (method-aware)
  * Opens a popup window and waits for user response
  */
 async function showAliasPrompt(fromEmail, toEmail, method, domain) {
@@ -308,7 +318,7 @@ async function showAliasPrompt(fromEmail, toEmail, method, domain) {
 }
 
 /**
- * FEATURE 3: Handle the identity prompt's response (stateless — everything
+ * IDENTITY CREATION: Handle the identity prompt's response (stateless — everything
  * needed is in the message, so it also works after an event-page restart)
  */
 async function handleIdentityPromptResponse(response) {
@@ -376,7 +386,7 @@ async function handleIdentityPromptResponse(response) {
 }
 
 /**
- * FEATURE 3: Show identity creation prompt
+ * IDENTITY CREATION: Show identity creation prompt
  * Fire-and-forget popup — its response arrives as a runtime message handled
  * by handleIdentityPromptResponse, so no pending resolver is registered
  */
@@ -391,7 +401,7 @@ async function showCreateIdentityPrompt(options) {
 }
 
 /**
- * FEATURE 3: Maybe create identity for new alias
+ * IDENTITY CREATION: Maybe create identity for new alias
  */
 async function maybeCreateIdentity(aliasEmail, baseEmail, method, composeTabId) {
   debugLog(`Send As Alias: maybeCreateIdentity called with aliasEmail: ${aliasEmail}, baseEmail: ${baseEmail}, method: ${method}, composeTabId: ${composeTabId}`);
@@ -475,10 +485,10 @@ async function handleCompose(tab, composeDetails) {
 
     let aliasWasSet = false;
     let usedAlias = null;
-    let usedIdentity = null; // base identity the alias belongs to (for Feature 3)
+    let usedIdentity = null; // base identity the alias belongs to (for Identity Creation)
     let usedMethod = null;
 
-    // FEATURE 1: Auto-detect alias for replies/forwards
+    // REPLY AS ALIAS: Auto-detect alias for replies/forwards
     if (composeDetails.relatedMessageId) {
       try {
         // Get original message with full headers
@@ -496,7 +506,7 @@ async function handleCompose(tab, composeDetails) {
         const match = await findMatchingAlias(recipients);
 
         if (match) {
-          debugLog(`Send As Alias: Feature 1 - Setting From to "${match.alias}" (method: ${match.method})`);
+          debugLog(`Send As Alias: Reply as Alias - Setting From to "${match.alias}" (method: ${match.method})`);
 
           try {
             // match.alias might be "Name" <email@domain.com>
@@ -504,21 +514,21 @@ async function handleCompose(tab, composeDetails) {
             const existingIdentity = await applyAliasToCompose(tab.id, aliasEmail, match.alias);
             aliasWasSet = true;
             if (!existingIdentity) {
-              // Only offer identity creation (Feature 3) when none exists yet
+              // Only offer Identity Creation when none exists yet
               usedAlias = aliasEmail;
               usedIdentity = match.identity;
               usedMethod = match.method;
             }
           } catch (setError) {
-            errorLog('Send As Alias: Feature 1 - Error setting From:', setError);
+            errorLog('Send As Alias: Reply as Alias - Error setting From:', setError);
           }
         }
       } catch (error) {
-        errorLog('Send As Alias: Error in Feature 1:', error);
+        errorLog('Send As Alias: Error in Reply as Alias:', error);
       }
     }
 
-    // FEATURE 2: Prompt for alias if not already set
+    // ALIAS SUGGESTION: Prompt for alias if not already set
     if (!aliasWasSet) {
       // Find the identity for this fromEmail
       const currentIdentity = identities.find(id => id.email === fromEmail);
@@ -526,7 +536,7 @@ async function handleCompose(tab, composeDetails) {
       if (currentIdentity) {
         const accountSettings = getAccountSettings(currentIdentity.id);
 
-        if (accountSettings.feature2Enabled) {
+        if (accountSettings.suggestAliasEnabled) {
           const method = accountSettings.aliasMethod;
           let shouldPrompt = false;
 
@@ -544,11 +554,11 @@ async function handleCompose(tab, composeDetails) {
             const toEmail = extractEmail(composeDetails.to && composeDetails.to[0]);
 
             // Check if we should skip this recipient
-            const dontAskList = accountSettings.feature2DontAskList || [];
+            const dontAskList = accountSettings.suggestAliasDontAskList || [];
             const shouldSkipRecipient = toEmail && dontAskList.includes(toEmail);
 
             if (!shouldSkipRecipient) {
-              debugLog(`Send As Alias: Feature 2 - Prompting for alias (method: ${method})`);
+              debugLog(`Send As Alias: Alias Suggestion - Prompting for alias (method: ${method})`);
 
               try {
                 const domain = extractDomain(fromEmail);
@@ -570,15 +580,15 @@ async function handleCompose(tab, composeDetails) {
 
                   const existingIdentity = await applyAliasToCompose(tab.id, aliasEmail, aliasWithName);
                   if (!existingIdentity) {
-                    // Only offer identity creation (Feature 3) when none exists yet
+                    // Only offer Identity Creation when none exists yet
                     usedAlias = aliasEmail;
                     usedIdentity = currentIdentity;
                     usedMethod = method;
                   }
                 } else if (result.dontAskAgain) {
                   // Save to dontAskAgain list for this account
-                  accountSettings.feature2DontAskList = accountSettings.feature2DontAskList || [];
-                  accountSettings.feature2DontAskList.push(toEmail);
+                  accountSettings.suggestAliasDontAskList = accountSettings.suggestAliasDontAskList || [];
+                  accountSettings.suggestAliasDontAskList.push(toEmail);
 
                   // Update storage
                   const stored = await messenger.storage.local.get('accountSettings');
@@ -587,7 +597,7 @@ async function handleCompose(tab, composeDetails) {
                   await messenger.storage.local.set({ accountSettings: allAccountSettings });
                 }
               } catch (error) {
-                errorLog('Send As Alias: Error in Feature 2:', error);
+                errorLog('Send As Alias: Error in Alias Suggestion:', error);
               }
             }
           }
@@ -595,7 +605,7 @@ async function handleCompose(tab, composeDetails) {
       }
     }
 
-    // FEATURE 3: Offer to create identity for new alias
+    // IDENTITY CREATION: Offer to create identity for new alias
     if (usedAlias && usedIdentity && settings.offerIdentityCreation) {
       try {
         // The base is the identity the alias was derived from — no string
@@ -603,7 +613,7 @@ async function handleCompose(tab, composeDetails) {
         // where the alias contains no "+" and its local part isn't the base)
         await maybeCreateIdentity(usedAlias, usedIdentity.email, usedMethod, tab.id);
       } catch (error) {
-        errorLog('Send As Alias: Error in Feature 3:', error);
+        errorLog('Send As Alias: Error in Identity Creation:', error);
       }
     }
   } catch (error) {

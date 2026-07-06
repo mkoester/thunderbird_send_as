@@ -48,42 +48,42 @@ Make sure you have your base email address configured in Thunderbird:
 
 The extension will automatically detect this!
 
-### 2. Enable Feature 2 (Optional)
+### 2. Enable Alias Suggestion (Optional)
 
 If you want alias suggestion prompts:
 
 1. Go to Add-ons → Send As Alias → Preferences
-2. Under "Feature 2: Alias Suggestion"
+2. In the account table, "Suggest Alias" column
 3. Check the box next to accounts where you want prompts
 
-### 3. Configure Feature 3 (Optional)
+### 3. Configure Identity Creation (Optional)
 
-Feature 3 (Auto-Create Identity) is enabled by default.
+Identity Creation (offering to save new aliases as identities) is enabled by default.
 
 To disable it:
 1. Go to Add-ons → Send As Alias → Preferences
-2. Under "Feature 3: Auto-Create Identity"
+2. Under "Identity Creation"
 3. Uncheck "Prompt to create identity for new aliases"
 
 ---
 
 ## Verify Installation
 
-### Test Feature 1 (Auto-Reply):
+### Test Reply as Alias:
 
 1. Send yourself a test email to `youremail+test@domain.com`
 2. Reply to that email
 3. Check the From address - it should be `youremail+test@domain.com`
 
-### Test Feature 2 (Alias Suggestion):
+### Test Alias Suggestion:
 
 1. Enable it for your account in settings
 2. Compose a new email
 3. You should see a prompt asking if you want to use an alias
 
-### Test Feature 3 (Identity Creation):
+### Test Identity Creation:
 
-1. Use an alias for the first time (via Feature 1 or 2)
+1. Use an alias for the first time (via Reply as Alias or Alias Suggestion)
 2. You should see a prompt to save it as an identity
 3. Check Tools → Account Settings → [Your Account] to see the new identity
 
@@ -96,7 +96,7 @@ To disable it:
 3. Click the three dots → Remove
 4. Confirm removal
 
-**Note:** This will remove the extension but NOT the identities you created with Feature 3.
+**Note:** This will remove the extension but NOT the identities you created with Identity Creation.
 
 ---
 
