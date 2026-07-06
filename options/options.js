@@ -389,11 +389,17 @@ async function loadAccounts() {
     const tbody = document.getElementById('accountTableBody');
 
     if (identities.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No accounts found</td></tr>';
+      const emptyRow = document.createElement('tr');
+      const emptyCell = document.createElement('td');
+      emptyCell.colSpan = 5;
+      emptyCell.className = 'empty-state';
+      emptyCell.textContent = 'No accounts found';
+      emptyRow.appendChild(emptyCell);
+      tbody.replaceChildren(emptyRow);
       return;
     }
 
-    tbody.innerHTML = '';
+    tbody.replaceChildren();
 
     identities.forEach(identity => {
       const row = renderAccountRow(identity);
@@ -416,11 +422,14 @@ function renderSkipList() {
   const container = document.getElementById('skipListItems');
 
   if (settings.skipIdentityCreation.length === 0) {
-    container.innerHTML = '<div class="empty-state">No aliases skipped</div>';
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'No aliases skipped';
+    container.replaceChildren(empty);
     return;
   }
 
-  container.innerHTML = '';
+  container.replaceChildren();
 
   settings.skipIdentityCreation.forEach((alias, index) => {
     const item = document.createElement('div');
