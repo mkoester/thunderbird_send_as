@@ -7,6 +7,8 @@ const {
   extractBase,
   matchesBase,
   aliasNamePart,
+  collectRecipientCandidates,
+  displayAddress,
   migrateAccountSettings
 } = require('../shared/alias-utils.js');
 
@@ -64,6 +66,32 @@ test('aliasNamePart: plus-addressing extracts the +part', () => {
 test('aliasNamePart: own-domain/catchall uses the local part (no "+" required)', () => {
   assert.equal(aliasNamePart('sales@mydomain.com', 'own-domain'), 'sales');
   assert.equal(aliasNamePart('support@mydomain.com', 'catchall'), 'support');
+});
+
+// Delivery-header handling inspired by the ReplyAsOriginalRecipientUp add-on
+test('collectRecipientCandidates puts delivery headers before To and CC', () => {
+  const headers = {
+    'x-original-to': ['alias@mydomain.com'],
+    'delivered-to': ['user@example.com'],
+    to: ['A <a@b.com>, C <c@d.com>'] // raw header: one string, two mailboxes
+  };
+  assert.deepEqual(
+    collectRecipientCandidates(headers, ['A <a@b.com>', 'C <c@d.com>'], ['cc@e.com']),
+    ['alias@mydomain.com', 'user@example.com', 'A <a@b.com>', 'C <c@d.com>', 'cc@e.com']
+  );
+});
+
+test('collectRecipientCandidates handles missing headers and lists', () => {
+  assert.deepEqual(collectRecipientCandidates({}, undefined, undefined), []);
+  assert.deepEqual(collectRecipientCandidates(undefined, ['a@b.com'], undefined), ['a@b.com']);
+});
+
+test('displayAddress keeps existing display names, adds a fallback name otherwise', () => {
+  assert.equal(displayAddress('Shop <user+shop@e.com>', 'Me'), 'Shop <user+shop@e.com>');
+  assert.equal(displayAddress('user+shop@e.com', 'Me'), 'Me <user+shop@e.com>');
+  assert.equal(displayAddress('User+Shop@E.com', null), 'user+shop@e.com');
+  assert.equal(displayAddress('', 'Me'), null);
+  assert.equal(displayAddress(null, 'Me'), null);
 });
 
 test('migrateAccountSettings renames featureN keys and preserves values', () => {

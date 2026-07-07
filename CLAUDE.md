@@ -13,6 +13,9 @@ The build script:
   - On other branches: adds commit hash (e.g., `1.0.2-76abf97`)
   - With uncommitted changes: adds `-SNAPSHOT` suffix (e.g., `1.0.2-SNAPSHOT` or `1.0.2-76abf97-SNAPSHOT`)
 - Outputs XPI to parent directory: `../send-as-alias-{version}.xpi`
+- Deletes a previous XPI of the same version before zipping (fixed 2026-07-07:
+  `zip` updates an existing archive in place, so entries of meanwhile-deleted
+  files silently survived in the XPI)
 - Shows git status information during build
 
 ### Usage
@@ -43,7 +46,7 @@ and persists when anything changed. Old feature numbers survive only in
 
 - `manifest.json` - Extension metadata and version (single source of truth for version)
 - `background.js` - Main extension logic (event handling, orchestration of the three features)
-- `shared/alias-utils.js` - Pure helpers (`extractEmail`, `extractDomain`, `extractBase`, `matchesBase`, `aliasNamePart`, `migrateAccountSettings`). Loaded as a plain script **before** `background.js` (manifest `background.scripts` order, attaches to `globalThis`), also loaded by `options/options.html`, and `require()`d by the unit tests under Node
+- `shared/alias-utils.js` - Pure helpers (`extractEmail`, `extractDomain`, `extractBase`, `matchesBase`, `aliasNamePart`, `collectRecipientCandidates`, `displayAddress`, `migrateAccountSettings`). Loaded as a plain script **before** `background.js` (manifest `background.scripts` order, attaches to `globalThis`), also loaded by `options/options.html`, and `require()`d by the unit tests under Node
 - `tests/alias-utils.test.js` - Unit tests (`node --test tests/*.test.js`, run automatically by `build.sh` before packaging)
 - `popup/` - HTML/JS for user-facing dialogs (alias prompt, identity creation); `popup/prompt.css` is the stylesheet shared by both dialogs
 - `options/` - Settings page UI (`options.css` holds its styles)
@@ -127,6 +130,38 @@ and persists when anything changed. Old feature numbers survive only in
   Identities created by Identity Creation for aliases would otherwise flood the table.
   They stay unconfigured (settings default to disabled), so `background.js` —
   which still iterates **all** identities — skips them.
+
+## Delivery-header detection (2026-07-06/07)
+
+Adopted from studying the **ReplyAsOriginalRecipientUp** add-on (a user
+switched to it after issue #1 feedback; credited in README):
+
+- **Reply as Alias scans delivery headers.** `collectRecipientCandidates(headers,
+  parsedRecipients, parsedCc)` (pure, in `shared/alias-utils.js`) builds the
+  candidate list: `x-original-to` / `delivered-to` / `envelope-to` from the raw
+  `messages.getFull()` headers first (they record the actual delivery address —
+  covers BCC/mailing-list/forwarded cases where the alias isn't in To/CC), then
+  the **parsed** `MessageHeader.recipients`/`.ccList` from `messages.get()`.
+  The parsed lists replaced the raw `to`/`cc` header strings: a raw header can
+  hold several mailboxes in one string (`To: a@b, c@d`), which `extractEmail`
+  misparsed (it only found the first `<...>`).
+- **Delivery headers are candidates, not commands** (design decision,
+  2026-07-07): every candidate — delivery header or To/CC — must pass
+  `matchesBase` against a configured identity's alias method. A separate
+  RAORu-style "Original-Recipient Fallback" (blindly trusting the delivered-to
+  address, with an ownership heuristic + confirmation popup) was built on
+  2026-07-06 and **removed the next day** before ever being released: one
+  candidate source with one uniform check is simpler and has no
+  trusted-as-is path. Catch-all users get the RAORu behavior by enabling
+  Reply as Alias with the catchall method. Don't reintroduce a blind path.
+- **Reply as Alias is the per-account master switch** — no feature is active
+  for an account without `replyAsAliasEnabled`; Alias Suggestion additionally
+  has its own per-account opt-in.
+- `displayAddress(recipient, fallbackName)` (pure) formats From values: keeps
+  an existing display name, else prepends the identity's name — replaced the
+  inline name-merging in `findMatchingAlias`.
+- The account table's column headers carry `title` tooltips (dotted underline
+  via `th.has-tooltip`) explaining each setting.
 
 ## UI design system (2026-07-03)
 

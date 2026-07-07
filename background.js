@@ -253,8 +253,9 @@ async function loadBaseEmails() {
   }
 }
 
-// extractEmail / extractDomain / extractBase / matchesBase / aliasNamePart are
-// defined in shared/alias-utils.js, loaded before this file (manifest.json
+// extractEmail / extractDomain / extractBase / matchesBase / aliasNamePart /
+// collectRecipientCandidates / displayAddress are defined in
+// shared/alias-utils.js, loaded before this file (manifest.json
 // background.scripts) — kept separate so they can be unit-tested under Node.
 
 /**
@@ -282,13 +283,8 @@ async function findMatchingAlias(recipients) {
 
       // Check if this email matches the identity's base using configured method
       if (matchesBase(email, identity, accountSettings.aliasMethod)) {
-        // Format the alias address with identity's name if available
-        let formattedAlias = recipient;
-
-        // If recipient has no display name but identity does, use identity's name
-        if (recipient === email && identity.name) {
-          formattedAlias = `${identity.name} <${email}>`;
-        }
+        // Keep the recipient's display name; fall back to the identity's name
+        const formattedAlias = displayAddress(recipient, identity.name);
 
         debugLog(`Send As Alias: ✓ Match found: ${email} (method: ${accountSettings.aliasMethod}, identity: ${identity.email})`);
 
@@ -491,16 +487,22 @@ async function handleCompose(tab, composeDetails) {
     // REPLY AS ALIAS: Auto-detect alias for replies/forwards
     if (composeDetails.relatedMessageId) {
       try {
-        // Get original message with full headers
-        const fullMessage = await messenger.messages.getFull(composeDetails.relatedMessageId);
+        // Raw headers (for the MTA delivery headers) plus the parsed To/CC
+        // lists — the raw to/cc header values can hold several mailboxes in
+        // one string, which extractEmail would misparse
+        const [fullMessage, messageHeader] = await Promise.all([
+          messenger.messages.getFull(composeDetails.relatedMessageId),
+          messenger.messages.get(composeDetails.relatedMessageId)
+        ]);
 
-        // Extract recipients from headers
-        const toHeader = fullMessage.headers.to || [];
-        const ccHeader = fullMessage.headers.cc || [];
-        const recipients = [
-          ...toHeader,
-          ...ccHeader
-        ];
+        // Delivery headers (x-original-to, delivered-to, envelope-to) first:
+        // they name the actual delivery address even when the alias is not in
+        // To/CC (BCC, mailing lists) — inspired by ReplyAsOriginalRecipientUp
+        const recipients = collectRecipientCandidates(
+          fullMessage.headers,
+          messageHeader.recipients,
+          messageHeader.ccList
+        );
 
         // Try to find matching alias (method-aware)
         const match = await findMatchingAlias(recipients);

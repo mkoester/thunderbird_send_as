@@ -95,7 +95,10 @@ sed -i "s/\"version\":\\s*\"[^\"]*\"/\"version\": \"$VERSION\"/" "$TEMP_DIR/mani
 
 echo "Updated manifest.json version to: $VERSION"
 
-# Create XPI file from temp directory
+# Create XPI file from temp directory. Remove any previous build of the same
+# version first: zip updates an existing archive in place, so entries of
+# meanwhile-deleted files would silently survive in the XPI.
+rm -f "$SCRIPT_DIR/$OUTPUT_FILE"
 cd "$TEMP_DIR"
 zip -r "$SCRIPT_DIR/$OUTPUT_FILE" \
     manifest.json \
