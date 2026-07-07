@@ -65,6 +65,19 @@ and persists when anything changed. Old feature numbers survive only in
   (`$SCREENSHOT_BROWSER` overrides autodetection); `hidden` elements are shown.
   Use it to review CSS changes without installing the XPI; allowlisted in
   `.claude/settings.json`
+- `scripts/verify-ui` + `scripts/ui-verify/` - Headless functional UI checks
+  (pattern ported from Bookmarks+): pages are staged to a temp dir with
+  `messenger-stub.js` (fixture accounts) injected before their scripts and
+  `lib.js` + a per-page driver after, rendered via chromium `--dump-dom`, and
+  PASS/FAIL lines parsed from a `<pre id="verify-result">`. Covers the options
+  table (row rendering, collapsed-row behavior, domain conflict, setup hint)
+  and both prompt popups (param rendering, runtime response messages). Run it
+  after changing page JS/HTML — synthetic events verify logic and DOM shape,
+  not native gestures. **Timing gotcha**: drivers must wait for the
+  `DOMContentLoaded` event itself, then poll with microtasks only — a
+  `setTimeout(0)` can fire *before* DCL, and `--dump-dom` can snapshot before
+  timer-parked work finishes (see `lib.js`). Allowlisted in
+  `.claude/settings.json`
 - `LICENSE` - GPL-3.0 license
 - `PRIVACY.md` - Privacy policy (no data collection, no network requests);
   `data_collection_permissions: { required: ["none"] }` is also declared in

@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Headless UI verification for the extension pages (pattern ported from the
+# Bookmarks+ extension). The unit tests cover the pure helpers; this drives
+# the real pages — options table incl. the collapsed-row behavior, and both
+# prompt popups incl. their runtime response messages — against a stubbed
+# messenger API with fixture accounts.
+#
+# How it works: the page sources are copied to a temp dir;
+# scripts/ui-verify/messenger-stub.js is injected BEFORE each page's own
+# scripts (fixture data instead of the WebExtension API), lib.js + a per-page
+# driver AFTER them. Headless Chromium renders each page with --dump-dom; the
+# driver writes a <pre id="verify-result"> of PASS/FAIL lines parsed here.
+# Exits non-zero on any failure.
+#
+# Limits: drivers dispatch synthetic events — authoritative for logic and DOM
+# shape, NOT for native browser gestures. Treat a pass as a regression net,
+# not a substitute for a real-Thunderbird smoke test of new interactions.
+#
+# Browser: $SCREENSHOT_BROWSER, or the first Chromium-family browser on PATH
+# (same convention as scripts/screenshot-ui).
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
+
+BROWSER="${SCREENSHOT_BROWSER:-}"
+if [ -z "$BROWSER" ]; then
+    for candidate in chromium chromium-browser google-chrome brave; do
+        if command -v "$candidate" > /dev/null 2>&1; then
+            BROWSER="$candidate"
+            break
+        fi
+    done
+fi
+if [ -z "$BROWSER" ]; then
+    echo "Error: no Chromium-family browser found; set SCREENSHOT_BROWSER" >&2
+    exit 1
+fi
+
+TEMP_DIR=$(mktemp -d -t send-as-alias-verify.XXXXXXXXXX)
+trap 'rm -rf "$TEMP_DIR"' EXIT
+
+cp -r "$REPO_DIR/options" "$REPO_DIR/popup" "$REPO_DIR/shared" \
+      "$REPO_DIR/theme" "$REPO_DIR/icons" "$TEMP_DIR/"
+mkdir "$TEMP_DIR/verify"
+cp "$SCRIPT_DIR/ui-verify/"*.js "$TEMP_DIR/verify/"
+
+FAILED=0
+
+# verify_page <page-html> <driver.js> <query-string> <label>
+verify_page() {
+    local page="$1" driver="$2" query="$3" label="$4"
+    local html="$TEMP_DIR/$page"
+    local target="${html%.html}_verify.html"
+
+    # Stub before the page's first script (theme.js in <head>), lib + driver
+    # after everything else
+    sed -e 's|<script src="../theme/theme.js">|<script src="../verify/messenger-stub.js"></script><script src="../theme/theme.js">|' \
+        -e 's|</body>|<script src="../verify/lib.js"></script><script src="../verify/'"$driver"'"></script></body>|' \
+        "$html" > "$target"
+
+    local dom
+    dom=$("$BROWSER" --headless=new --no-sandbox --disable-gpu --dump-dom \
+        "file://$target$query" 2> /dev/null) || true
+
+    local lines
+    lines=$(printf '%s' "$dom" \
+        | sed -n '/<pre id="verify-result">/,/<\/pre>/p' \
+        | sed -e 's|.*<pre id="verify-result">||' -e 's|</pre>.*||' \
+        | grep -E '^(PASS|FAIL): ' || true)
+
+    if [ -z "$lines" ]; then
+        echo "✗ $label"
+        echo "   ✗ no verify-result produced (page or driver crashed)"
+        FAILED=1
+        return
+    fi
+
+    if printf '%s\n' "$lines" | grep -q '^FAIL'; then
+        echo "✗ $label"
+        FAILED=1
+    else
+        echo "✓ $label"
+    fi
+    printf '%s\n' "$lines" | sed -e 's|^PASS: |   ✓ |' -e 's|^FAIL: |   ✗ |'
+}
+
+verify_page options/options.html options.js "" options
+verify_page popup/alias-prompt.html alias-prompt.js \
+    "?from=user%40example.com&to=shop%40external.com&method=plus" alias-prompt
+verify_page popup/identity-prompt.html identity-prompt.js \
+    "?email=user%2Bshopping%40example.com&baseName=User%20One&aliasName=shopping&baseEmail=user%40example.com&tabId=7" \
+    identity-prompt
+
+echo
+if [ "$FAILED" -ne 0 ]; then
+    echo "UI verification FAILED (browser: $BROWSER)"
+    exit 1
+fi
+echo "UI verification passed (browser: $BROWSER)"

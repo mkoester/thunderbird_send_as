@@ -277,6 +277,9 @@ thunderbird_send_as/
 │   ├── identity-prompt.html   # Identity creation popup
 │   └── identity-prompt.js     # Identity creation logic
 ├── icons/                     # Extension icons
+├── scripts/                   # Dev helpers: lint (addons-linter), screenshot-ui,
+│   │                          #   verify-ui (headless functional UI checks)
+│   └── ui-verify/             # Stub + per-page drivers for verify-ui
 ├── build.sh                   # Build script (tests + versioned XPI)
 ├── README.md                  # This file
 ├── DESIGN_OWN_DOMAIN.md       # Technical specification
