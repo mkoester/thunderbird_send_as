@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(scripts/screenshot-ui)",
-      "Bash(scripts/lint)",
-      "Bash(scripts/verify-ui)"
-    ]
-  }
-}
