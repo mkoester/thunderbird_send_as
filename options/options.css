@@ -107,6 +107,14 @@ h2 {
   cursor: help;
 }
 
+/* Reply as Alias disabled: hide the dependent controls instead of showing
+   them disabled — they're inert noise then (the domain-conflict warning in
+   the method cell stays visible) */
+.account-table tr.reply-disabled .method-options,
+.account-table tr.reply-disabled .suggest-alias-enabled {
+  display: none;
+}
+
 .account-email {
   font-family: monospace;
   font-size: 0.85rem;

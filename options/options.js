@@ -210,6 +210,9 @@ function renderAccountRow(identity) {
 
   const row = document.createElement('tr');
   row.dataset.identityId = identity.id;
+  // Reply as Alias off → collapse the row: the dependent controls (method
+  // radios, Suggest Alias) are hidden via CSS instead of shown disabled
+  row.classList.toggle('reply-disabled', !accountSettings.replyAsAliasEnabled);
 
   // Column 1: Account email
   const emailCell = document.createElement('td');
@@ -239,6 +242,9 @@ function renderAccountRow(identity) {
     newSettings.replyAsAliasEnabled = e.target.checked;
 
     await saveAccountSettings(identity.id, newSettings);
+
+    // Collapse/expand the dependent controls
+    row.classList.toggle('reply-disabled', !e.target.checked);
 
     // Enable/disable method radios (keep their state)
     const methodCell = row.querySelector('.method-cell');

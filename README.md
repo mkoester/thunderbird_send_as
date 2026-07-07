@@ -130,7 +130,8 @@ suffix), and writes the XPI to the parent directory
 - Reply as Alias is the per-account master switch: no feature works for an
   account without it (Alias Suggestion additionally has its own checkbox)
 - Only ONE identity per domain can use "own domain" methods (conflict protection)
-- Settings are preserved when features are disabled
+- While Reply as Alias is disabled for an account, its other options are hidden
+  — but the settings underneath are preserved and come back on re-enabling
 
 ### Global Settings (Identity Creation)
 

@@ -127,6 +127,11 @@ and persists when anything changed. Old feature numbers survive only in
   confused users ("no configuration needed" was in old docs).
 - **Options table shows one row per account** — the account's *default* identity
   (`accounts.list()` + `identities.getDefault(accountId)`), not every identity.
+  Rows with Reply as Alias disabled are collapsed (2026-07-07): the dependent
+  controls (method radios, Suggest Alias checkbox) are hidden via the row's
+  `reply-disabled` class + CSS instead of shown disabled — inert noise
+  otherwise. The disabled-state logic stays underneath as a second layer, and
+  the domain-conflict warning remains visible.
   Identities created by Identity Creation for aliases would otherwise flood the table.
   They stay unconfigured (settings default to disabled), so `background.js` —
   which still iterates **all** identities — skips them.
