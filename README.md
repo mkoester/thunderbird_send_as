@@ -31,6 +31,14 @@ Automatically sets your "From" address to match aliases when replying to or forw
 
 **Configuration:** Enable per account in extension settings, then select your alias method (plus-addressing, own domain, or catchall)
 
+**Detection:** The alias is looked for in the delivery headers written by the
+mail server (`X-Original-To`, `Delivered-To`, `Envelope-To`) first, then in the
+`To:` and `CC:` recipients — so aliases are found even when they don't appear
+in `To:`/`CC:` at all (BCC, mailing lists, forwarded addresses). The delivery
+headers are just another candidate source, not blindly trusted: every
+candidate, wherever it came from, must match the account's alias method — an
+address that isn't yours is never used.
+
 ---
 
 ### Alias Suggestion 📝 Per-Account (Optional)
@@ -116,9 +124,11 @@ suffix), and writes the XPI to the parent directory
      - **Own domain**: `alias@yourdomain.com` (for domains you own)
      - **Own domain with catchall**: `anything@yourdomain.com` (catchall enabled)
    - **Enable Alias Suggestion**: Check to get alias prompts when composing
+3. Hover the column headers for a short explanation of each setting
 
 **Important Notes:**
-- Reply as Alias must be enabled before Alias Suggestion can be used
+- Reply as Alias is the per-account master switch: no feature works for an
+  account without it (Alias Suggestion additionally has its own checkbox)
 - Only ONE identity per domain can use "own domain" methods (conflict protection)
 - Settings are preserved when features are disabled
 
@@ -164,10 +174,14 @@ The extension supports three alias methods (configured per-account):
 ### Smart Detection
 
 1. **Loads your Thunderbird identities** to know which addresses/domains you manage
-2. **Matches aliases** based on the configured method:
+2. **Collects recipient candidates** from the original message: delivery headers
+   (`X-Original-To`, `Delivered-To`, `Envelope-To`) first — they record the real
+   delivery address even when the alias isn't in `To:`/`CC:` — then the parsed
+   `To:` and `CC:` lists
+3. **Matches aliases** based on the configured method:
    - Plus-addressing: Strips `+alias` and compares to base
    - Own domain: Compares domain names
-3. **Per-account configuration** lets you use different methods for different accounts
+4. **Per-account configuration** lets you use different methods for different accounts
 
 ---
 
@@ -288,6 +302,9 @@ GPL-3.0 - See [LICENSE](LICENSE) file for details.
 Inspired by:
 - [Custom Sender Address and Reply (Cusedar)](https://addons.thunderbird.net/thunderbird/addon/custom-sender-address-reply/)
 - [Reply As Original Recipient](https://addons.thunderbird.net/thunderbird/addon/reply-as-original-recipient/)
+- [ReplyAsOriginalRecipientUp](https://addons.thunderbird.net/thunderbird/addon/replyasoriginalrecipientup/) —
+  its use of the `X-Original-To` header inspired the delivery-header detection
+  in Reply as Alias
 
 Built with the Thunderbird WebExtension API.
 
