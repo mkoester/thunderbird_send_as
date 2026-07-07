@@ -36,10 +36,10 @@ function getAccountSettings(identityId) {
 
   // Return default settings if not configured
   return {
-    feature1Enabled: false,
+    replyAsAliasEnabled: false,
     aliasMethod: 'plus',
-    feature2Enabled: false,
-    feature2DontAskList: []
+    suggestAliasEnabled: false,
+    suggestAliasDontAskList: []
   };
 }
 
@@ -56,7 +56,9 @@ async function loadSettings() {
       'theme'
     ]);
 
-    if (stored.accountSettings) settings.accountSettings = stored.accountSettings;
+    // Normalize historical featureN keys in memory; the background script owns
+    // persisting the rename (shared helper from ../shared/alias-utils.js)
+    if (stored.accountSettings) settings.accountSettings = migrateAccountSettings(stored.accountSettings).accountSettings;
     if (stored.offerIdentityCreation !== undefined) settings.offerIdentityCreation = stored.offerIdentityCreation;
     if (stored.skipIdentityCreation) settings.skipIdentityCreation = stored.skipIdentityCreation;
     if (stored.debugLogging !== undefined) settings.debugLogging = stored.debugLogging;
@@ -111,13 +113,7 @@ async function saveGlobalSettings() {
   }
 }
 
-/**
- * Extract domain from email address
- */
-function extractDomain(email) {
-  const match = email.match(/@(.+)$/);
-  return match ? match[1] : null;
-}
+// extractDomain comes from ../shared/alias-utils.js (loaded before this file)
 
 /**
  * Get identity by ID
@@ -127,11 +123,11 @@ function getIdentityById(identityId) {
 }
 
 /**
- * Show the setup hint while no account has Auto-Reply enabled — without it
+ * Show the setup hint while no account has Reply as Alias enabled — without it
  * the extension is entirely inactive (all features are per-account opt-in)
  */
 function updateSetupHint() {
-  const anyEnabled = document.querySelector('#accountTableBody .feature1-enabled:checked') !== null;
+  const anyEnabled = document.querySelector('#accountTableBody .reply-as-alias-enabled:checked') !== null;
   document.getElementById('setupHint').hidden = anyEnabled;
 }
 
@@ -149,9 +145,9 @@ function updateDomainConflicts() {
     if (!identity) return;
 
     const accountSettings = getAccountSettings(identityId);
-    const feature1Checkbox = row.querySelector('.feature1-enabled');
+    const replyAsAliasCheckbox = row.querySelector('.reply-as-alias-enabled');
 
-    if (feature1Checkbox.checked &&
+    if (replyAsAliasCheckbox.checked &&
         (accountSettings.aliasMethod === 'own-domain' || accountSettings.aliasMethod === 'catchall')) {
       const domain = extractDomain(identity.email);
       if (domain) {
@@ -170,7 +166,7 @@ function updateDomainConflicts() {
     if (!identity) return;
 
     const domain = extractDomain(identity.email);
-    const feature1Checkbox = row.querySelector('.feature1-enabled');
+    const replyAsAliasCheckbox = row.querySelector('.reply-as-alias-enabled');
     const warning = row.querySelector('.domain-conflict-warning');
     const radioButtons = row.querySelectorAll('input[type="radio"]');
 
@@ -178,28 +174,28 @@ function updateDomainConflicts() {
     const ownersOfDomain = domainMap.get(domain) || [];
     const otherOwner = ownersOfDomain.find(id => id !== identityId);
 
-    const feature2Checkbox = row.querySelector('.feature2-enabled');
+    const suggestAliasCheckbox = row.querySelector('.suggest-alias-enabled');
 
     if (otherOwner) {
       // Another identity is using own-domain for this domain
-      feature1Checkbox.disabled = true;
+      replyAsAliasCheckbox.disabled = true;
       warning.style.display = 'inline-block';
 
       // Disable radio buttons (keep their state)
       radioButtons.forEach(radio => radio.disabled = true);
 
-      // Disable Feature 2 checkbox (keep its state)
-      feature2Checkbox.disabled = true;
+      // Disable Suggest-Alias checkbox (keep its state)
+      suggestAliasCheckbox.disabled = true;
     } else {
       // No conflict
-      feature1Checkbox.disabled = false;
+      replyAsAliasCheckbox.disabled = false;
       warning.style.display = 'none';
 
-      // Enable/disable radio buttons based on Feature 1 checkbox
-      radioButtons.forEach(radio => radio.disabled = !feature1Checkbox.checked);
+      // Enable/disable radio buttons based on Reply as Alias checkbox
+      radioButtons.forEach(radio => radio.disabled = !replyAsAliasCheckbox.checked);
 
-      // Enable/disable Feature 2 checkbox based on Feature 1 checkbox
-      feature2Checkbox.disabled = !feature1Checkbox.checked;
+      // Enable/disable Suggest-Alias checkbox based on Reply as Alias checkbox
+      suggestAliasCheckbox.disabled = !replyAsAliasCheckbox.checked;
     }
   });
 
@@ -231,16 +227,16 @@ function renderAccountRow(identity) {
   nameCell.appendChild(nameDiv);
   row.appendChild(nameCell);
 
-  // Column 3: Auto-reply checkbox
-  const autoReplyCell = document.createElement('td');
-  autoReplyCell.className = 'checkbox-cell';
-  const autoReplyCheckbox = document.createElement('input');
-  autoReplyCheckbox.type = 'checkbox';
-  autoReplyCheckbox.className = 'feature1-enabled';
-  autoReplyCheckbox.checked = accountSettings.feature1Enabled;
-  autoReplyCheckbox.addEventListener('change', async (e) => {
+  // Column 3: Reply-as-Alias checkbox
+  const replyAsAliasCell = document.createElement('td');
+  replyAsAliasCell.className = 'checkbox-cell';
+  const replyAsAliasCheckbox = document.createElement('input');
+  replyAsAliasCheckbox.type = 'checkbox';
+  replyAsAliasCheckbox.className = 'reply-as-alias-enabled';
+  replyAsAliasCheckbox.checked = accountSettings.replyAsAliasEnabled;
+  replyAsAliasCheckbox.addEventListener('change', async (e) => {
     const newSettings = getAccountSettings(identity.id);
-    newSettings.feature1Enabled = e.target.checked;
+    newSettings.replyAsAliasEnabled = e.target.checked;
 
     await saveAccountSettings(identity.id, newSettings);
 
@@ -251,15 +247,15 @@ function renderAccountRow(identity) {
       radio.disabled = !e.target.checked;
     });
 
-    // Enable/disable Feature 2 checkbox (keep its state)
-    const feature2Checkbox = row.querySelector('.feature2-enabled');
-    feature2Checkbox.disabled = !e.target.checked;
+    // Enable/disable Suggest-Alias checkbox (keep its state)
+    const suggestAliasCheckbox = row.querySelector('.suggest-alias-enabled');
+    suggestAliasCheckbox.disabled = !e.target.checked;
 
     // Update domain conflicts
     updateDomainConflicts();
   });
-  autoReplyCell.appendChild(autoReplyCheckbox);
-  row.appendChild(autoReplyCell);
+  replyAsAliasCell.appendChild(replyAsAliasCheckbox);
+  row.appendChild(replyAsAliasCell);
 
   // Column 4: Alias method (radio buttons)
   const methodCell = document.createElement('td');
@@ -275,7 +271,7 @@ function renderAccountRow(identity) {
     'Plus-addressing',
     'user+alias@domain.com',
     accountSettings.aliasMethod === 'plus',
-    !accountSettings.feature1Enabled
+    !accountSettings.replyAsAliasEnabled
   );
   methodOptions.appendChild(plusOption);
 
@@ -286,7 +282,7 @@ function renderAccountRow(identity) {
     'Own domain',
     'alias@yourdomain.com',
     accountSettings.aliasMethod === 'own-domain',
-    !accountSettings.feature1Enabled
+    !accountSettings.replyAsAliasEnabled
   );
   methodOptions.appendChild(ownDomainOption);
 
@@ -297,7 +293,7 @@ function renderAccountRow(identity) {
     'Catchall',
     'anything@yourdomain.com',
     accountSettings.aliasMethod === 'catchall',
-    !accountSettings.feature1Enabled
+    !accountSettings.replyAsAliasEnabled
   );
   methodOptions.appendChild(catchallOption);
 
@@ -312,21 +308,21 @@ function renderAccountRow(identity) {
 
   row.appendChild(methodCell);
 
-  // Column 5: Feature 2 checkbox
-  const feature2Cell = document.createElement('td');
-  feature2Cell.className = 'checkbox-cell';
-  const feature2Checkbox = document.createElement('input');
-  feature2Checkbox.type = 'checkbox';
-  feature2Checkbox.className = 'feature2-enabled';
-  feature2Checkbox.checked = accountSettings.feature2Enabled;
-  feature2Checkbox.disabled = !accountSettings.feature1Enabled; // Disabled if Auto-Reply is off
-  feature2Checkbox.addEventListener('change', async (e) => {
+  // Column 5: Suggest-Alias checkbox
+  const suggestAliasCell = document.createElement('td');
+  suggestAliasCell.className = 'checkbox-cell';
+  const suggestAliasCheckbox = document.createElement('input');
+  suggestAliasCheckbox.type = 'checkbox';
+  suggestAliasCheckbox.className = 'suggest-alias-enabled';
+  suggestAliasCheckbox.checked = accountSettings.suggestAliasEnabled;
+  suggestAliasCheckbox.disabled = !accountSettings.replyAsAliasEnabled; // Disabled if Reply as Alias is off
+  suggestAliasCheckbox.addEventListener('change', async (e) => {
     const newSettings = getAccountSettings(identity.id);
-    newSettings.feature2Enabled = e.target.checked;
+    newSettings.suggestAliasEnabled = e.target.checked;
     await saveAccountSettings(identity.id, newSettings);
   });
-  feature2Cell.appendChild(feature2Checkbox);
-  row.appendChild(feature2Cell);
+  suggestAliasCell.appendChild(suggestAliasCheckbox);
+  row.appendChild(suggestAliasCell);
 
   return row;
 }
@@ -373,8 +369,8 @@ function createMethodOption(identityId, methodValue, labelText, helpText, checke
 
 /**
  * Load the default identity of each account and render the account table.
- * Non-default identities (e.g. those created by Feature 3 for aliases) are
- * not shown; they keep default settings, so the background logic skips them.
+ * Non-default identities (e.g. those created by Identity Creation for aliases)
+ * are not shown; they keep default settings, so the background logic skips them.
  */
 async function loadAccounts() {
   try {
@@ -416,7 +412,7 @@ async function loadAccounts() {
 }
 
 /**
- * Render skip list for Feature 3
+ * Render skip list for Identity Creation
  */
 function renderSkipList() {
   const container = document.getElementById('skipListItems');
@@ -467,7 +463,7 @@ async function initialize() {
   await loadSettings();
   await loadAccounts();
 
-  // Set up Feature 3 checkbox
+  // Set up Identity Creation checkbox
   const checkbox = document.getElementById('offerIdentityCreation');
   checkbox.checked = settings.offerIdentityCreation;
   checkbox.addEventListener('change', async (e) => {

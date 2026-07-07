@@ -22,9 +22,9 @@
   <div id="statusMessage" class="status-message"></div>
 
   <div id="setupHint" class="setup-hint" hidden>
-    Send As Alias is currently <strong>inactive</strong>: enable Auto-Reply for at
-    least one account below and select its alias method. All features are opt-in
-    per account.
+    Send As Alias is currently <strong>inactive</strong>: enable Reply as Alias
+    for at least one account below and select its alias method. All features are
+    opt-in per account.
   </div>
 
   <!-- Account Settings -->
@@ -39,9 +39,9 @@
         <tr>
           <th>Account</th>
           <th>Display Name</th>
-          <th class="checkbox-cell">Auto-Reply</th>
-          <th>Alias Method</th>
-          <th class="checkbox-cell">Suggest Alias</th>
+          <th class="checkbox-cell has-tooltip" title="Master switch for this account — no feature works without it. On reply/forward, sets the From address to the alias the original mail was addressed or delivered to. The alias is taken from the mail's To/CC lists and its delivery headers (X-Original-To, Delivered-To, Envelope-To) and must match the selected alias method.">Reply as Alias</th>
+          <th class="has-tooltip" title="How your aliases relate to this account's address: user+alias@your-provider (plus-addressing), or any address on a domain you own (own domain / catch-all).">Alias Method</th>
+          <th class="checkbox-cell has-tooltip" title="Optional: when composing a new mail from the base address, ask whether to use an alias instead. Requires Reply as Alias.">Suggest Alias</th>
         </tr>
       </thead>
       <tbody id="accountTableBody">
@@ -54,9 +54,9 @@
 
   <hr class="section-divider">
 
-  <!-- Feature 3: Identity Creation -->
+  <!-- Identity Creation -->
   <div class="section">
-    <h2>Identity Creation (Feature 3)</h2>
+    <h2>Identity Creation</h2>
     <p class="description">
       Automatically offer to save new aliases as Thunderbird identities.
     </p>
@@ -114,6 +114,7 @@
     </p>
   </div>
 
+  <script src="../shared/alias-utils.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

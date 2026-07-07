@@ -6,14 +6,14 @@ Automatically manage email aliases with support for multiple alias methods:
 - **Catchall**: `anything@yourdomain.com` (domains with catchall forwarding)
 
 > **Initial setup required:** after installation the extension is inactive until
-> you enable **Auto-Reply** for at least one account in the extension settings
+> you enable **Reply as Alias** for at least one account in the extension settings
 > and select its alias method — all features are opt-in per account. The
 > settings page opens automatically after installation; see
 > [Configuration](#configuration).
 
 ## Features
 
-### Feature 1: Auto-Reply with Alias 📧 Per-Account (Opt-In)
+### Reply as Alias 📧 Per-Account (Opt-In)
 
 Automatically sets your "From" address to match aliases when replying to or forwarding emails.
 
@@ -31,9 +31,17 @@ Automatically sets your "From" address to match aliases when replying to or forw
 
 **Configuration:** Enable per account in extension settings, then select your alias method (plus-addressing, own domain, or catchall)
 
+**Detection:** The alias is looked for in the delivery headers written by the
+mail server (`X-Original-To`, `Delivered-To`, `Envelope-To`) first, then in the
+`To:` and `CC:` recipients — so aliases are found even when they don't appear
+in `To:`/`CC:` at all (BCC, mailing lists, forwarded addresses). The delivery
+headers are just another candidate source, not blindly trusted: every
+candidate, wherever it came from, must match the account's alias method — an
+address that isn't yours is never used.
+
 ---
 
-### Feature 2: Alias Suggestion 📝 Per-Account (Optional)
+### Alias Suggestion 📝 Per-Account (Optional)
 
 Prompts you to use an alias when composing emails from your base address.
 
@@ -49,7 +57,7 @@ Prompts you to use an alias when composing emails from your base address.
 - Extension prompts: "Enter alias for @yourdomain.com"
 - You enter "sales" → From becomes `sales@yourdomain.com`
 
-**Configuration:** Enable per account in extension settings (requires Feature 1 to be enabled)
+**Configuration:** Enable per account in extension settings (requires Reply as Alias to be enabled)
 
 **Benefits:**
 - Never accidentally expose your base address
@@ -58,7 +66,7 @@ Prompts you to use an alias when composing emails from your base address.
 
 ---
 
-### Feature 3: Auto-Create Identity 🆕 Optional (Enabled by Default)
+### Identity Creation 🆕 Optional (Enabled by Default)
 
 Offers to save new aliases as Thunderbird identities when you use them for the first time.
 
@@ -76,6 +84,11 @@ Offers to save new aliases as Thunderbird identities when you use them for the f
 ---
 
 ## Installation
+
+### From Thunderbird Add-ons (Recommended)
+
+Install from the official add-on listing:
+[addons.thunderbird.net/thunderbird/addon/send-as-alias](https://addons.thunderbird.net/thunderbird/addon/send-as-alias/)
 
 ### From Source (Development)
 
@@ -101,26 +114,28 @@ suffix), and writes the XPI to the parent directory
 
 ## Configuration
 
-### Per-Account Settings (Features 1 & 2)
+### Per-Account Settings (Reply as Alias & Alias Suggestion)
 
 1. Open extension settings (Tools → Add-ons → Send As Alias → Preferences)
 2. For each email account/identity:
-   - **Enable Auto-Reply**: Check to enable Feature 1
+   - **Enable Reply as Alias**: Check to set the From address automatically on replies/forwards
    - **Alias Method**: Choose your alias type:
      - **Plus-addressing**: `user+alias@domain.com` (Gmail, Posteo, etc.)
      - **Own domain**: `alias@yourdomain.com` (for domains you own)
      - **Own domain with catchall**: `anything@yourdomain.com` (catchall enabled)
-   - **Enable Alias Suggestion**: Check to enable Feature 2 prompts
+   - **Enable Alias Suggestion**: Check to get alias prompts when composing
+3. Hover the column headers for a short explanation of each setting
 
 **Important Notes:**
-- Feature 1 must be enabled before Feature 2 can be used
+- Reply as Alias is the per-account master switch: no feature works for an
+  account without it (Alias Suggestion additionally has its own checkbox)
 - Only ONE identity per domain can use "own domain" methods (conflict protection)
 - Settings are preserved when features are disabled
 
-### Global Settings (Feature 3)
+### Global Settings (Identity Creation)
 
 1. Open extension settings
-2. Under "Feature 3: Auto-Create Identity"
+2. Under "Identity Creation"
 3. Uncheck to disable the feature globally
 4. View/remove aliases in the "skip list"
 
@@ -159,17 +174,22 @@ The extension supports three alias methods (configured per-account):
 ### Smart Detection
 
 1. **Loads your Thunderbird identities** to know which addresses/domains you manage
-2. **Matches aliases** based on the configured method:
+2. **Collects recipient candidates** from the original message: delivery headers
+   (`X-Original-To`, `Delivered-To`, `Envelope-To`) first — they record the real
+   delivery address even when the alias isn't in `To:`/`CC:` — then the parsed
+   `To:` and `CC:` lists
+3. **Matches aliases** based on the configured method:
    - Plus-addressing: Strips `+alias` and compares to base
    - Own domain: Compares domain names
-3. **Per-account configuration** lets you use different methods for different accounts
+4. **Per-account configuration** lets you use different methods for different accounts
 
 ---
 
 ## Privacy
 
-- All processing done locally in Thunderbird
-- No data sent to external servers
+- **No data collection** — declared in the manifest
+  (`data_collection_permissions: { required: ["none"] }`), see [PRIVACY.md](PRIVACY.md)
+- All processing done locally in Thunderbird; the extension makes no network requests
 - Settings stored in Thunderbird's local storage
 - Open source - audit the code yourself!
 
@@ -190,7 +210,7 @@ The extension supports three alias methods (configured per-account):
 ## Permissions Explained
 
 - **`accountsRead`**: Read your configured email identities
-- **`accountsIdentities`**: Create new identities (Feature 3)
+- **`accountsIdentities`**: Create new identities (Identity Creation)
 - **`messagesRead`**: Read original message recipients
 - **`compose`**: Modify From address in compose window
 - **`storage`**: Save your settings and preferences
@@ -199,33 +219,33 @@ The extension supports three alias methods (configured per-account):
 
 ## Troubleshooting
 
-### Feature 1 isn't working
+### Reply as Alias isn't working
 
 **For plus-addressing:**
 - Check that you have the base address configured as an identity in Thunderbird
 - Example: For `user+shop@domain.com` to work, you need `user@domain.com` as an identity
-- Ensure Feature 1 is **enabled** for that account in settings
+- Ensure Reply as Alias is **enabled** for that account in settings
 
 **For own domain:**
-- Verify Feature 1 is enabled for the account
+- Verify Reply as Alias is enabled for the account
 - Check that the alias method is set correctly (own domain or catchall)
 - Ensure only ONE identity per domain is using own-domain methods
-- If you see a "Domain conflict" warning, disable Feature 1 for other identities with the same domain
+- If you see a "Domain conflict" warning, disable Reply as Alias for other identities with the same domain
 
 **General:**
 - Reload the extension or restart Thunderbird
 - Enable debug logging in settings and check the Browser Console (Ctrl+Shift+J)
 
-### Feature 2 prompts aren't showing
+### Alias Suggestion prompts aren't showing
 
-- Check that Feature 1 is enabled (Feature 2 requires Feature 1)
-- Verify Feature 2 is enabled for the specific account in settings
+- Check that Reply as Alias is enabled (Alias Suggestion requires it)
+- Verify Alias Suggestion is enabled for the specific account in settings
 - Make sure you're composing from a base address:
   - Plus-addressing: From address without `+` (e.g., `user@domain.com`)
   - Own domain: From address matching your configured identity
 - Check the "Don't ask again" list isn't blocking the recipient
 
-### Feature 3 isn't creating identities
+### Identity Creation isn't creating identities
 
 - Check that the feature is enabled in global settings
 - Verify the alias isn't in the "skip list"
@@ -282,6 +302,9 @@ GPL-3.0 - See [LICENSE](LICENSE) file for details.
 Inspired by:
 - [Custom Sender Address and Reply (Cusedar)](https://addons.thunderbird.net/thunderbird/addon/custom-sender-address-reply/)
 - [Reply As Original Recipient](https://addons.thunderbird.net/thunderbird/addon/reply-as-original-recipient/)
+- [ReplyAsOriginalRecipientUp](https://addons.thunderbird.net/thunderbird/addon/replyasoriginalrecipientup/) —
+  its use of the `X-Original-To` header inspired the delivery-header detection
+  in Reply as Alias
 
 Built with the Thunderbird WebExtension API.
 

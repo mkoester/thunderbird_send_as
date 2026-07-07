@@ -100,6 +100,13 @@ h2 {
   text-align: center;
 }
 
+/* Column headers carrying a title-attribute tooltip */
+.account-table th.has-tooltip {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
 .account-email {
   font-family: monospace;
   font-size: 0.85rem;

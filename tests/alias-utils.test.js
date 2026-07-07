@@ -6,7 +6,10 @@ const {
   extractDomain,
   extractBase,
   matchesBase,
-  aliasNamePart
+  aliasNamePart,
+  collectRecipientCandidates,
+  displayAddress,
+  migrateAccountSettings
 } = require('../shared/alias-utils.js');
 
 test('extractEmail handles plain, angle-bracket and object formats', () => {
@@ -53,7 +56,7 @@ test('matchesBase returns false for unknown methods', () => {
   assert.equal(matchesBase('a@b.c', { email: 'a@b.c' }, 'bogus'), false);
 });
 
-// These cases crashed / misbehaved before the method-aware Feature 3 fix:
+// These cases crashed / misbehaved before the method-aware Identity Creation fix:
 // the old code did aliasEmail.split('+')[1].split('@')[0]
 test('aliasNamePart: plus-addressing extracts the +part', () => {
   assert.equal(aliasNamePart('user+shopping@example.com', 'plus'), 'shopping');
@@ -63,4 +66,79 @@ test('aliasNamePart: plus-addressing extracts the +part', () => {
 test('aliasNamePart: own-domain/catchall uses the local part (no "+" required)', () => {
   assert.equal(aliasNamePart('sales@mydomain.com', 'own-domain'), 'sales');
   assert.equal(aliasNamePart('support@mydomain.com', 'catchall'), 'support');
+});
+
+// Delivery-header handling inspired by the ReplyAsOriginalRecipientUp add-on
+test('collectRecipientCandidates puts delivery headers before To and CC', () => {
+  const headers = {
+    'x-original-to': ['alias@mydomain.com'],
+    'delivered-to': ['user@example.com'],
+    to: ['A <a@b.com>, C <c@d.com>'] // raw header: one string, two mailboxes
+  };
+  assert.deepEqual(
+    collectRecipientCandidates(headers, ['A <a@b.com>', 'C <c@d.com>'], ['cc@e.com']),
+    ['alias@mydomain.com', 'user@example.com', 'A <a@b.com>', 'C <c@d.com>', 'cc@e.com']
+  );
+});
+
+test('collectRecipientCandidates handles missing headers and lists', () => {
+  assert.deepEqual(collectRecipientCandidates({}, undefined, undefined), []);
+  assert.deepEqual(collectRecipientCandidates(undefined, ['a@b.com'], undefined), ['a@b.com']);
+});
+
+test('displayAddress keeps existing display names, adds a fallback name otherwise', () => {
+  assert.equal(displayAddress('Shop <user+shop@e.com>', 'Me'), 'Shop <user+shop@e.com>');
+  assert.equal(displayAddress('user+shop@e.com', 'Me'), 'Me <user+shop@e.com>');
+  assert.equal(displayAddress('User+Shop@E.com', null), 'user+shop@e.com');
+  assert.equal(displayAddress('', 'Me'), null);
+  assert.equal(displayAddress(null, 'Me'), null);
+});
+
+test('migrateAccountSettings renames featureN keys and preserves values', () => {
+  const { accountSettings, changed } = migrateAccountSettings({
+    id1: {
+      feature1Enabled: true,
+      aliasMethod: 'own-domain',
+      feature2Enabled: true,
+      feature2DontAskList: ['a@b.com']
+    }
+  });
+  assert.equal(changed, true);
+  assert.deepEqual(accountSettings.id1, {
+    aliasMethod: 'own-domain',
+    replyAsAliasEnabled: true,
+    suggestAliasEnabled: true,
+    suggestAliasDontAskList: ['a@b.com']
+  });
+});
+
+test('migrateAccountSettings leaves already-migrated settings untouched', () => {
+  const input = {
+    id1: {
+      replyAsAliasEnabled: false,
+      aliasMethod: 'plus',
+      suggestAliasEnabled: true,
+      suggestAliasDontAskList: []
+    }
+  };
+  const { accountSettings, changed } = migrateAccountSettings(input);
+  assert.equal(changed, false);
+  assert.deepEqual(accountSettings, input);
+});
+
+test('migrateAccountSettings handles empty/missing input and partial old keys', () => {
+  assert.deepEqual(migrateAccountSettings(undefined), { accountSettings: {}, changed: false });
+  assert.deepEqual(migrateAccountSettings({}), { accountSettings: {}, changed: false });
+
+  // Old entry that never stored a don't-ask list gets the defaults
+  const { accountSettings, changed } = migrateAccountSettings({
+    id1: { feature1Enabled: true, aliasMethod: 'plus' }
+  });
+  assert.equal(changed, true);
+  assert.deepEqual(accountSettings.id1, {
+    aliasMethod: 'plus',
+    replyAsAliasEnabled: true,
+    suggestAliasEnabled: false,
+    suggestAliasDontAskList: []
+  });
 });
