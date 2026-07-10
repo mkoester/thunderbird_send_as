@@ -50,7 +50,7 @@ and persists when anything changed. Old feature numbers survive only in
 - `tests/alias-utils.test.js` - Unit tests (`node --test tests/*.test.js`, run automatically by `build.sh` before packaging)
 - `popup/` - HTML/JS for user-facing dialogs (alias prompt, identity creation); `popup/prompt.css` is the stylesheet shared by both dialogs
 - `options/` - Settings page UI (`options.css` holds its styles)
-- `theme/` - Shared design system: `tokens.css` (color tokens, light + dark palettes) and `theme.js` (applies the stored theme)
+- `theme/` - Shared design system: `tokens.css` (color tokens, light + dark palettes), `theme.js` (applies the stored theme), and `buildBadge.js` (dev-build ribbon — see UI design system)
 - `icons/` - Extension icons (48x48, 96x96)
 - `build.sh` - Build script (use this!) — runs the tests, then packages
 - `scripts/lint` - Runs `addons-linter` (via `pnpm dlx`/`npx`) on the newest
@@ -201,6 +201,19 @@ across all three pages (options, alias-prompt, identity-prompt):
   `--primary`/`--on-primary`. `color-scheme` is set per theme so native controls follow.
 - **No inline styles in HTML** — everything lives in the linked stylesheets. JS only
   toggles `display` (status message, conflict warning), never colors.
+- **Dev-build ribbon** (env.style-inspired, ported from Bookmarks+, 2026-07-10): a
+  coloured strip shown on all three pages for non-release builds, to tell a dev build
+  from a release at a glance. `theme/buildBadge.js` (classic script, loaded in each
+  page's `<head>` after `theme.js`; self-runs on `DOMContentLoaded`) reads
+  `messenger.runtime.getManifest().version`, classifies it via the pure `buildKind()`
+  — `release` (no hyphen) / `branch` (`…-<hash>`) / `dirty` (`…-SNAPSHOT`) — sets
+  `data-build` on `<html>`, and injects a `.build-ribbon`. `tokens.css` tints it
+  **yellow for branch, amber for dirty** (release shows nothing) — extend the ribbon
+  tokens in all three theme blocks, same rule as above. `buildKind` is exported
+  (dual-mode, like `shared/alias-utils.js`) and unit-tested (`tests/build-badge.test.js`,
+  run by `build.sh`). **Gotcha:** `build.sh` only decorates the version *inside the
+  packaged XPI*, so the ribbon shows for an installed dev XPI, NOT for a temporary
+  unpacked load of the source folder (whose manifest keeps the plain base version).
 
 ## Important Notes
 
