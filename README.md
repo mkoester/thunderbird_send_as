@@ -5,11 +5,7 @@ Automatically manage email aliases with support for multiple alias methods:
 - **Own domain**: `alias@yourdomain.com` (domains you own)
 - **Catchall**: `anything@yourdomain.com` (domains with catchall forwarding)
 
-> **Initial setup required:** after installation the extension is inactive until
-> you enable **Reply as Alias** for at least one account in the extension settings
-> and select its alias method — all features are opt-in per account. The
-> settings page opens automatically after installation; see
-> [Configuration](#configuration).
+> **Initial setup required:** after installation the extension is inactive until you enable **Reply as Alias** for at least one account in the extension settings and select its alias method — all features are opt-in per account. The settings page opens automatically after installation; see [Configuration](#configuration).
 
 ## Features
 
@@ -31,13 +27,7 @@ Automatically sets your "From" address to match aliases when replying to or forw
 
 **Configuration:** Enable per account in extension settings, then select your alias method (plus-addressing, own domain, or catchall)
 
-**Detection:** The alias is looked for in the delivery headers written by the
-mail server (`X-Original-To`, `Delivered-To`, `Envelope-To`) first, then in the
-`To:` and `CC:` recipients — so aliases are found even when they don't appear
-in `To:`/`CC:` at all (BCC, mailing lists, forwarded addresses). The delivery
-headers are just another candidate source, not blindly trusted: every
-candidate, wherever it came from, must match the account's alias method — an
-address that isn't yours is never used.
+**Detection:** The alias is looked for in the delivery headers written by the mail server (`X-Original-To`, `Delivered-To`, `Envelope-To`) first, then in the `To:` and `CC:` recipients — so aliases are found even when they don't appear in `To:`/`CC:` at all (BCC, mailing lists, forwarded addresses). The delivery headers are just another candidate source, not blindly trusted: every candidate, wherever it came from, must match the account's alias method — an address that isn't yours is never used.
 
 ---
 
@@ -87,8 +77,7 @@ Offers to save new aliases as Thunderbird identities when you use them for the f
 
 ### From Thunderbird Add-ons (Recommended)
 
-Install from the official add-on listing:
-[addons.thunderbird.net/thunderbird/addon/send-as-alias](https://addons.thunderbird.net/thunderbird/addon/send-as-alias/)
+Install from the official add-on listing: [addons.thunderbird.net/thunderbird/addon/send-as-alias](https://addons.thunderbird.net/thunderbird/addon/send-as-alias/)
 
 ### From Source (Development)
 
@@ -105,10 +94,7 @@ Install from the official add-on listing:
 ./build.sh
 ```
 
-The script runs the unit tests, applies git-based versioning (clean `main` →
-manifest version; other branches/dirty tree get a commit-hash/`-SNAPSHOT`
-suffix), and writes the XPI to the parent directory
-(`../send-as-alias-<version>.xpi`). Then install the `.xpi` file in Thunderbird.
+The script runs the unit tests, applies git-based versioning (clean `main` → manifest version; other branches/dirty tree get a commit-hash/`-SNAPSHOT` suffix), and writes the XPI to the parent directory (`../send-as-alias-<version>.xpi`). Then install the `.xpi` file in Thunderbird.
 
 ---
 
@@ -127,11 +113,9 @@ suffix), and writes the XPI to the parent directory
 3. Hover the column headers for a short explanation of each setting
 
 **Important Notes:**
-- Reply as Alias is the per-account master switch: no feature works for an
-  account without it (Alias Suggestion additionally has its own checkbox)
+- Reply as Alias is the per-account master switch: no feature works for an account without it (Alias Suggestion additionally has its own checkbox)
 - Only ONE identity per domain can use "own domain" methods (conflict protection)
-- While Reply as Alias is disabled for an account, its other options are hidden
-  — but the settings underneath are preserved and come back on re-enabling
+- While Reply as Alias is disabled for an account, its other options are hidden — but the settings underneath are preserved and come back on re-enabling
 
 ### Global Settings (Identity Creation)
 
@@ -175,10 +159,7 @@ The extension supports three alias methods (configured per-account):
 ### Smart Detection
 
 1. **Loads your Thunderbird identities** to know which addresses/domains you manage
-2. **Collects recipient candidates** from the original message: delivery headers
-   (`X-Original-To`, `Delivered-To`, `Envelope-To`) first — they record the real
-   delivery address even when the alias isn't in `To:`/`CC:` — then the parsed
-   `To:` and `CC:` lists
+2. **Collects recipient candidates** from the original message: delivery headers (`X-Original-To`, `Delivered-To`, `Envelope-To`) first — they record the real delivery address even when the alias isn't in `To:`/`CC:` — then the parsed `To:` and `CC:` lists
 3. **Matches aliases** based on the configured method:
    - Plus-addressing: Strips `+alias` and compares to base
    - Own domain: Compares domain names
@@ -188,8 +169,7 @@ The extension supports three alias methods (configured per-account):
 
 ## Privacy
 
-- **No data collection** — declared in the manifest
-  (`data_collection_permissions: { required: ["none"] }`), see [PRIVACY.md](PRIVACY.md)
+- **No data collection** — declared in the manifest (`data_collection_permissions: { required: ["none"] }`), see [PRIVACY.md](PRIVACY.md)
 - All processing done locally in Thunderbird; the extension makes no network requests
 - Settings stored in Thunderbird's local storage
 - Open source - audit the code yourself!
@@ -306,9 +286,7 @@ GPL-3.0 - See [LICENSE](LICENSE) file for details.
 Inspired by:
 - [Custom Sender Address and Reply (Cusedar)](https://addons.thunderbird.net/thunderbird/addon/custom-sender-address-reply/)
 - [Reply As Original Recipient](https://addons.thunderbird.net/thunderbird/addon/reply-as-original-recipient/)
-- [ReplyAsOriginalRecipientUp](https://addons.thunderbird.net/thunderbird/addon/replyasoriginalrecipientup/) —
-  its use of the `X-Original-To` header inspired the delivery-header detection
-  in Reply as Alias
+- [ReplyAsOriginalRecipientUp](https://addons.thunderbird.net/thunderbird/addon/replyasoriginalrecipientup/) — its use of the `X-Original-To` header inspired the delivery-header detection in Reply as Alias
 
 Built with the Thunderbird WebExtension API.
 

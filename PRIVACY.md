@@ -2,27 +2,17 @@
 
 _Last updated: 2026-07-03_
 
-**Send As Alias does not collect, transmit, or sell any data.** The extension
-makes **no network requests at all** — everything happens locally inside
-Thunderbird. This is also declared machine-readably in the manifest
-(`data_collection_permissions: { required: ["none"] }`).
+**Send As Alias does not collect, transmit, or sell any data.** The extension makes **no network requests at all** — everything happens locally inside Thunderbird. This is also declared machine-readably in the manifest (`data_collection_permissions: { required: ["none"] }`).
 
 ## What the extension handles (locally)
 
-- Your Thunderbird **accounts and identities** (email addresses, display
-  names) — to detect which aliases belong to which account and to create new
-  identities **only when you approve them** in a prompt.
-- The **To/Cc headers** of a message you reply to or forward — to detect
-  whether it was sent to one of your aliases.
-- Your extension **settings** (per-account alias configuration, skip list,
-  theme, debug flag).
+- Your Thunderbird **accounts and identities** (email addresses, display names) — to detect which aliases belong to which account and to create new identities **only when you approve them** in a prompt.
+- The **To/Cc headers** of a message you reply to or forward — to detect whether it was sent to one of your aliases.
+- Your extension **settings** (per-account alias configuration, skip list, theme, debug flag).
 
 ## Where it is stored
 
-Settings are stored **locally** via Thunderbird's extension storage API
-(`storage.local`). Identities you approve are created in your Thunderbird
-profile like any manually created identity. Nothing is sent to the developer
-or to any third party.
+Settings are stored **locally** via Thunderbird's extension storage API (`storage.local`). Identities you approve are created in your Thunderbird profile like any manually created identity. Nothing is sent to the developer or to any third party.
 
 ## What we do NOT do
 

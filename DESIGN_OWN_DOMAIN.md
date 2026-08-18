@@ -1,15 +1,6 @@
 # Technical Design: Own Domain / Catchall Support
 
-> **Naming note (2026-07-06):** this design doc predates the renaming of the
-> numbered features. Whenever it says **Feature 1** read **Reply as Alias**,
-> **Feature 2** = **Alias Suggestion**, **Feature 3** = **Identity Creation**.
-> The per-account storage keys were renamed accordingly
-> (`feature1Enabled` → `replyAsAliasEnabled`, `feature2Enabled` →
-> `suggestAliasEnabled`, `feature2DontAskList` → `suggestAliasDontAskList`);
-> the global Identity Creation keys are `offerIdentityCreation` /
-> `skipIdentityCreation` (the `feature3Enabled` / `feature3SkipList` shown
-> below never shipped under those names). Code snippets below reflect the
-> state at design time — the current source is authoritative.
+> **Naming note (2026-07-06):** this design doc predates the renaming of the numbered features. Whenever it says **Feature 1** read **Reply as Alias**, **Feature 2** = **Alias Suggestion**, **Feature 3** = **Identity Creation**. The per-account storage keys were renamed accordingly (`feature1Enabled` → `replyAsAliasEnabled`, `feature2Enabled` → `suggestAliasEnabled`, `feature2DontAskList` → `suggestAliasDontAskList`); the global Identity Creation keys are `offerIdentityCreation` / `skipIdentityCreation` (the `feature3Enabled` / `feature3SkipList` shown below never shipped under those names). Code snippets below reflect the state at design time — the current source is authoritative.
 
 ## Overview
 
