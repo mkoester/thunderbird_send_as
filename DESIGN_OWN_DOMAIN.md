@@ -473,6 +473,8 @@ messenger.runtime.onInstalled.addListener(async (details) => {
 
 ## Testing Checklist
 
+Part of this historical design doc, not a backlog: the rework it plans has shipped, and these boxes belong to the artifact. Deliberately not migrated to Vikunja (2026-08-20).
+
 ### Migration Testing
 - [ ] Fresh install creates default settings
 - [ ] Update from old version migrates settings correctly
