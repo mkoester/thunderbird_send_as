@@ -9,7 +9,13 @@ const {
   aliasNamePart,
   collectRecipientCandidates,
   displayAddress,
-  migrateAccountSettings
+  migrateAccountSettings,
+  parseAliasPatterns,
+  patternToRegExp,
+  matchPattern,
+  suggestionTemplate,
+  findAliasMatch,
+  shouldOpenSetup
 } = require('../shared/alias-utils.js');
 
 test('extractEmail handles plain, angle-bracket and object formats', () => {
@@ -141,4 +147,99 @@ test('migrateAccountSettings handles empty/missing input and partial old keys', 
     suggestAliasEnabled: false,
     suggestAliasDontAskList: []
   });
+});
+
+test('matchesBase compares identity addresses case-insensitively', () => {
+  const identity = { email: 'Jane.Doe@Example.com' };
+  assert.equal(matchesBase('jane.doe+shop@example.com', identity, 'plus'), true);
+  assert.equal(matchesBase('jane.doe@example.com', identity, 'plus'), false);
+  assert.equal(matchesBase('sales@example.com', identity, 'own-domain'), true);
+  assert.equal(matchesBase('jane.doe@example.com', identity, 'catchall'), false);
+});
+
+test('parseAliasPatterns normalizes lines/commas and drops junk', () => {
+  assert.deepEqual(
+    parseAliasPatterns(' User+*@Example.com \n\n*@me.example.com, nonsense '),
+    ['user+*@example.com', '*@me.example.com']
+  );
+  assert.deepEqual(parseAliasPatterns(['A@B.c', '']), ['a@b.c']);
+  assert.deepEqual(parseAliasPatterns(undefined), []);
+});
+
+test('patternToRegExp: "*" never spans the @ and regex characters are literal', () => {
+  assert.ok(patternToRegExp('user+*@example.com').test('user+shop@example.com'));
+  assert.ok(!patternToRegExp('user+*@example.com').test('user+@example.com'));
+  assert.ok(!patternToRegExp('user+*@example.com').test('user+x@evil.com@example.com'));
+  assert.ok(!patternToRegExp('user+*@example.com').test('user+shop@exampleXcom'));
+  assert.ok(!patternToRegExp('*@me.example.com').test('a@b.me.example.com'));
+  assert.ok(patternToRegExp('u+*@example.com').test('u+tag@example.com'));
+});
+
+// The setup this method was built for: +labels on two local parts plus a
+// catch-all subdomain per mailbox, all configured on one account
+const PATTERNS = ['alice+*@example.com', 'bob@example.com', 'bob+*@example.com',
+  '*@alice.example.com', '*@bob.example.com'];
+
+test('matchesBase: patterns method matches only the configured addresses', () => {
+  const identity = { email: 'alice@example.com' };
+  const m = (e) => matchesBase(e, identity, 'patterns', PATTERNS);
+  assert.equal(m('alice+shop@example.com'), true);
+  assert.equal(m('bob@example.com'), true);
+  assert.equal(m('bob+news@example.com'), true);
+  assert.equal(m('webshop@bob.example.com'), true);
+  assert.equal(m('webshop@alice.example.com'), true);
+  assert.equal(m('alice-shop@example.com'), false); // "-" is not "+"
+  assert.equal(m('webshop@other.example.com'), false); // someone else's mailbox
+  assert.equal(m('alice@example.com'), false); // the identity itself
+  assert.equal(m('someoneelse@example.com'), false); // shared domain, not mine
+  assert.equal(m('alicex@example.com'), false);
+  assert.equal(matchesBase('alice+shop@example.com', identity, 'patterns', []), false);
+});
+
+test('matchPattern / aliasNamePart / suggestionTemplate for patterns', () => {
+  assert.deepEqual(matchPattern('alice+shop@example.com', PATTERNS),
+    { pattern: 'alice+*@example.com', captured: 'shop' });
+  assert.deepEqual(matchPattern('bob@example.com', PATTERNS),
+    { pattern: 'bob@example.com', captured: null });
+  assert.equal(aliasNamePart('alice+shop@example.com', 'patterns', PATTERNS), 'shop');
+  assert.equal(aliasNamePart('webshop@bob.example.com', 'patterns', PATTERNS), 'webshop');
+  assert.equal(aliasNamePart('bob@example.com', 'patterns', PATTERNS), 'bob');
+  assert.equal(suggestionTemplate(PATTERNS), 'alice+*@example.com');
+  assert.equal(suggestionTemplate(['a@b.c', '*-*@b.c']), null);
+});
+
+test('findAliasMatch tries candidates in order across all enabled accounts', () => {
+  const ids = [
+    { id: 'a', email: 'me@a.com', name: 'A' },
+    { id: 'b', email: 'alice@example.com', name: 'Alice' },
+    { id: 'c', email: 'off@c.com', name: 'Off' }
+  ];
+  const cfg = {
+    a: { replyAsAliasEnabled: true, aliasMethod: 'catchall' },
+    b: { replyAsAliasEnabled: true, aliasMethod: 'patterns', aliasPatterns: PATTERNS },
+    c: { replyAsAliasEnabled: false, aliasMethod: 'plus' }
+  };
+  const get = (id) => cfg[id];
+
+  // Delivery header (first candidate) names b's alias; a's alias in To must not win
+  const m = findAliasMatch(['alice+bcc@example.com', 'Shop <x@a.com>'], ids, get);
+  assert.equal(m.email, 'alice+bcc@example.com');
+  assert.equal(m.identity.id, 'b');
+  assert.equal(m.alias, 'Alice <alice+bcc@example.com>');
+  assert.equal(m.method, 'patterns');
+
+  assert.equal(findAliasMatch(['Shop <x@a.com>'], ids, get).alias, 'Shop <x@a.com>');
+  assert.equal(findAliasMatch(['off+x@c.com', 'nobody@z.com'], ids, get), null);
+  assert.equal(findAliasMatch([], ids, get), null);
+});
+
+test('shouldOpenSetup: install always, update only while nothing is enabled', () => {
+  const off = { id1: { replyAsAliasEnabled: false } };
+  const on = { id1: { replyAsAliasEnabled: false }, id2: { replyAsAliasEnabled: true } };
+  assert.equal(shouldOpenSetup('install', on), true);
+  assert.equal(shouldOpenSetup('update', undefined), true); // reinstall during "Undo"
+  assert.equal(shouldOpenSetup('update', off), true);
+  assert.equal(shouldOpenSetup('update', on), false);
+  assert.equal(shouldOpenSetup('update', { id1: { feature1Enabled: true } }), false); // pre-rename key
+  assert.equal(shouldOpenSetup('browser_update', undefined), false);
 });

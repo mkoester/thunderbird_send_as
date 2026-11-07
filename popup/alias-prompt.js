@@ -4,6 +4,7 @@ const fromEmail = params.get('from');
 const toEmail = params.get('to');
 const method = params.get('method') || 'plus';
 const domain = params.get('domain');
+const template = params.get('template'); // patterns method: e.g. "user+*@example.com"
 
 // Populate the UI
 document.getElementById('fromEmail').textContent = fromEmail;
@@ -13,6 +14,10 @@ if (method === 'own-domain' || method === 'catchall') {
   document.getElementById('promptHeading').textContent = `Enter alias for @${domain}`;
   document.getElementById('inputLabel').textContent = 'Alias name:';
   document.getElementById('aliasInput').placeholder = 'e.g., sales, support, contact';
+} else if (method === 'patterns' && template) {
+  document.getElementById('promptHeading').textContent = `Enter alias for ${template}`;
+  document.getElementById('inputLabel').textContent = 'Alias name:';
+  document.getElementById('aliasInput').placeholder = 'e.g., shop, newsletter';
 }
 
 // Update example alias
@@ -27,6 +32,8 @@ function updateExample() {
       exampleAlias.textContent = `Will use: ${localPart}+${value}@${domainPart}`;
     } else if (method === 'own-domain' || method === 'catchall') {
       exampleAlias.textContent = `Will use: ${value}@${domain}`;
+    } else if (method === 'patterns' && template) {
+      exampleAlias.textContent = `Will use: ${template.replace('*', value.toLowerCase())}`;
     }
   } else {
     exampleAlias.textContent = 'Leave empty to continue with base address';

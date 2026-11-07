@@ -4,9 +4,9 @@
 window.__verify.run(async ({ check, waitFor }) => {
   const rows = await waitFor(() => {
     const r = document.querySelectorAll('#accountTableBody tr[data-identity-id]');
-    return r.length === 4 ? r : null;
+    return r.length === 5 ? r : null;
   });
-  if (!check('4 account rows render from the fixture', !!rows)) return;
+  if (!check('5 account rows render from the fixture', !!rows)) return;
 
   const hidden = (el) => !el || getComputedStyle(el).display === 'none';
   const byId = {};
@@ -40,6 +40,20 @@ window.__verify.run(async ({ check, waitFor }) => {
   const r3 = byId.id3;
   check('domain-conflict warning is visible', !hidden(r3.querySelector('.domain-conflict-warning')));
   check('conflicted row has Reply as Alias disabled', r3.querySelector('.reply-as-alias-enabled').disabled);
+
+  // Patterns method (id5): editor visible only while that method is selected
+  const r5 = byId.id5;
+  const editor = r5.querySelector('.alias-patterns');
+  check('patterns row has the patterns method selected', r5.querySelector('input[type="radio"][value="patterns"]').checked);
+  check('pattern editor is visible while patterns is selected', !hidden(editor));
+  check('pattern editor shows the stored patterns', editor.value === 'pat+*@example.com\n*@pat.example.com');
+  check('plus row (id1) hides its pattern editor', hidden(r1.querySelector('.alias-patterns')));
+  editor.value = ' Pat+*@Example.COM \n\nnot-an-address';
+  editor.dispatchEvent(new Event('change'));
+  await waitFor(() => editor.value === 'pat+*@example.com');
+  const pw = __stubState.storageWrites.at(-1);
+  check('edited patterns are normalized and persisted',
+    !!pw && JSON.stringify(pw.accountSettings.id5.aliasPatterns) === '["pat+*@example.com"]');
 
   // Page chrome
   check('setup hint is hidden while an account is enabled', document.getElementById('setupHint').hidden);

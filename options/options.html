@@ -17,7 +17,7 @@
     </div>
   </div>
   <p class="description">
-    Configure email alias management with support for plus-addressing, own domain, and catchall methods.
+    Configure email alias management with support for plus-addressing, own domain, catchall and address-pattern methods.
   </p>
 
   <div id="statusMessage" class="status-message"></div>
@@ -41,7 +41,7 @@
           <th>Account</th>
           <th>Display Name</th>
           <th class="checkbox-cell has-tooltip" title="Master switch for this account — no feature works without it. On reply/forward, sets the From address to the alias the original mail was addressed or delivered to. The alias is taken from the mail's To/CC lists and its delivery headers (X-Original-To, Delivered-To, Envelope-To) and must match the selected alias method.">Reply as Alias</th>
-          <th class="has-tooltip" title="How your aliases relate to this account's address: user+alias@your-provider (plus-addressing), or any address on a domain you own (own domain / catch-all).">Alias Method</th>
+          <th class="has-tooltip" title="How your aliases relate to this account's address: user+alias@your-provider (plus-addressing), any address on a domain you own (own domain / catch-all), or an explicit list of address patterns such as user+*@domain.com and *@me.domain.com (address patterns).">Alias Method</th>
           <th class="checkbox-cell has-tooltip" title="Optional: when composing a new mail from the base address, ask whether to use an alias instead. Requires Reply as Alias.">Suggest Alias</th>
         </tr>
       </thead>
