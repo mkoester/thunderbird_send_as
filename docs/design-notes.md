@@ -37,7 +37,7 @@ The three features were referred to by number during early development ("Feature
 
 | Old | Name | What it does | Per-account storage keys |
 |---|---|---|---|
-| Feature 1 | **Reply as Alias** | Sets From to the matching alias on reply/forward | `replyAsAliasEnabled` (+ `aliasMethod`) |
+| Feature 1 | **Reply as Alias** | Sets From to the matching alias on reply/forward | `replyAsAliasEnabled` (+ `aliasMethod`, `aliasPatterns`) |
 | Feature 2 | **Alias Suggestion** | Prompts for an alias when composing from a base address | `suggestAliasEnabled`, `suggestAliasDontAskList` |
 | Feature 3 | **Identity Creation** | Offers to save a newly used alias as a Thunderbird identity | global: `offerIdentityCreation`, `skipIdentityCreation` (always had these names) |
 
@@ -47,7 +47,7 @@ The three features were referred to by number during early development ("Feature
 
 - `manifest.json` - Extension metadata and version (single source of truth for version)
 - `background.js` - Main extension logic (event handling, orchestration of the three features)
-- `shared/alias-utils.js` - Pure helpers (`extractEmail`, `extractDomain`, `extractBase`, `matchesBase`, `aliasNamePart`, `collectRecipientCandidates`, `displayAddress`, `migrateAccountSettings`). Loaded as a plain script **before** `background.js` (manifest `background.scripts` order, attaches to `globalThis`), also loaded by `options/options.html`, and `require()`d by the unit tests under Node
+- `shared/alias-utils.js` - Pure helpers (`extractEmail`, `extractDomain`, `extractBase`, `matchesBase`, `aliasNamePart`, `parseAliasPatterns`/`patternToRegExp`/`matchPattern`, `suggestionTemplate`, `findAliasMatch`, `collectRecipientCandidates`, `displayAddress`, `migrateAccountSettings`). Loaded as a plain script **before** `background.js` (manifest `background.scripts` order, attaches to `globalThis`), also loaded by `options/options.html`, and `require()`d by the unit tests under Node
 - `tests/alias-utils.test.js` - Unit tests (`node --test tests/*.test.js`, run automatically by `build.sh` before packaging)
 - `popup/` - HTML/JS for user-facing dialogs (alias prompt, identity creation); `popup/prompt.css` is the stylesheet shared by both dialogs
 - `options/` - Settings page UI (`options.css` holds its styles)
@@ -66,6 +66,13 @@ The three features were referred to by number during early development ("Feature
 - `docs/archive/` - Historical plan/design/debug docs (superseded; kept for reference)
 - `CLAUDE.md` - This file
 
+## Address patterns method (2026-11-07)
+
+- **`aliasMethod: 'patterns'`** with a per-account `aliasPatterns` list (lower-cased, one address pattern each; `*` = one or more non-`@` characters, captured). For aliasing that plus/own-domain/catchall can't express: +labels on several local parts of one account, catch-all subdomains, other delimiters, and shared domains where own-domain/catchall would match other people's addresses. It is still a configured check per candidate — no trusted-as-is path.
+- **`findAliasMatch` iterates candidates first, then accounts**, so the delivery-header order of `collectRecipientCandidates` is actually honoured (the old loop was accounts-first: the first enabled account matching *any* candidate won).
+- **Identity addresses are compared case-insensitively** (`matchesBase`, Alias Suggestion's identity lookup): `extractEmail` lower-cases, but Thunderbird keeps identity addresses as typed, so a capital letter silently disabled the account.
+- The pattern editor's visibility is pure CSS (`.method-option:has(> input:checked) .alias-patterns`); it saves on `change` (blur).
+
 ## Architecture notes (2026-07-03 fixes)
 
 - **Identity Creation is method-aware.** The base identity for a used alias is carried through `handleCompose` (`usedIdentity`/`usedMethod`) instead of being re-derived by string-splitting on `+` — the old parsing crashed for own-domain/catchall aliases (no `+` present). `aliasNamePart(aliasEmail, method)` produces the human alias name for identity naming, and the identity-prompt popup receives it as a URL parameter instead of re-parsing the email.
@@ -73,7 +80,7 @@ The three features were referred to by number during early development ("Feature
 - **The identity prompt (Identity Creation) is stateless** (2026-07-03 bug fix): the in-memory resolver map does **not** survive MV3 event-page restarts, and a dropped resolver silently ate the popup's response — identity never created, no error. Now the popup echoes `aliasEmail`/`baseEmail`/`identityName` in its runtime message and `handleIdentityPromptResponse` creates the identity directly in the `onMessage` handler, no pending state needed. The compose tab id travels along so the still-open compose window can be updated. **Hard TB limitation** (verified in comm-esr128 source): a compose window cannot switch to an identity created *after* it opened — `ext-compose.js` resolves `identityId` against the window's identity dropdown (populated at window open), sets `selectedItem = undefined` when there is no menu item, and crashes in `LoadIdentity`; after that even plain `from` overrides crash (`MakeFromFieldEditable` reads `selectedItem.value`). So for the just-created case only the From header is overridden (with the new identity's name); that message is sent from the base identity, and the real identity applies from the next compose on via `applyAliasToCompose` (safe there: those windows always open after the identity already existed, so the menu item is present). Only the alias prompt (Alias Suggestion) still uses the resolver map, because its response must reach the compose flow awaiting it; a dropped alias response is now at least `errorLog`ged instead of silent.
 - `processedComposeTabs` entries are dropped on `tabs.onRemoved` (tab ids can be reused).
 - **Existing alias identities are used, not clobbered** (`applyAliasToCompose`): when Reply as Alias or Alias Suggestion resolves an alias that already has its own identity, the compose window is switched to it via `setComposeDetails({ identityId })` — so that identity's name/signature apply. Building the From string from the *base* identity's name (the old behaviour) produced mixtures like `Mirko Köster <it@…>` for an identity named `Mirko Köster IT`. Only when no identity exists yet is the From header overridden, and only then does Identity Creation offer to create one.
-- **First-run onboarding** (issue #1): `runtime.onInstalled` (reason `install`) opens the options page, and the options page shows a warning-style setup hint (`#setupHint`, `updateSetupHint()`) while no account has Reply as Alias enabled — without that the extension is entirely inactive, which confused users ("no configuration needed" was in old docs).
+- **First-run onboarding** (issue #1): `runtime.onInstalled` opens the options page on `install`, and on `update` while no account has Reply as Alias enabled (`shouldOpenSetup`; reinstalling while the old copy is still pending uninstall — the Add-ons Manager's Undo state — arrives as an `update`), and the options page shows a warning-style setup hint (`#setupHint`, `updateSetupHint()`) while no account has Reply as Alias enabled — without that the extension is entirely inactive, which confused users ("no configuration needed" was in old docs).
 - **Options table shows one row per account** — the account's *default* identity (`accounts.list()` + `identities.getDefault(accountId)`), not every identity. Rows with Reply as Alias disabled are collapsed (2026-07-07): the dependent controls (method radios, Suggest Alias checkbox) are hidden via the row's `reply-disabled` class + CSS instead of shown disabled — inert noise otherwise. The disabled-state logic stays underneath as a second layer, and the domain-conflict warning remains visible. Identities created by Identity Creation for aliases would otherwise flood the table. They stay unconfigured (settings default to disabled), so `background.js` — which still iterates **all** identities — skips them.
 
 ## Delivery-header detection (2026-07-06/07)

@@ -38,6 +38,7 @@ function getAccountSettings(identityId) {
   return {
     replyAsAliasEnabled: false,
     aliasMethod: 'plus',
+    aliasPatterns: [],
     suggestAliasEnabled: false,
     suggestAliasDontAskList: []
   };
@@ -303,6 +304,19 @@ function renderAccountRow(identity) {
   );
   methodOptions.appendChild(catchallOption);
 
+  // Method 4: Explicit address patterns (shown with a pattern editor while
+  // selected — visibility is pure CSS, see .alias-patterns in options.css)
+  const patternsOption = createMethodOption(
+    identity.id,
+    'patterns',
+    'Address patterns',
+    'user+*@domain.com, *@me.domain.com',
+    accountSettings.aliasMethod === 'patterns',
+    !accountSettings.replyAsAliasEnabled
+  );
+  patternsOption.querySelector('label').appendChild(createPatternsEditor(identity.id, accountSettings));
+  methodOptions.appendChild(patternsOption);
+
   methodCell.appendChild(methodOptions);
 
   // Domain conflict warning
@@ -331,6 +345,27 @@ function renderAccountRow(identity) {
   row.appendChild(suggestAliasCell);
 
   return row;
+}
+
+/**
+ * Pattern editor for the 'patterns' method: one address pattern per line,
+ * "*" = any text without "@". Saved (normalized) when the textarea loses
+ * focus after a change.
+ */
+function createPatternsEditor(identityId, accountSettings) {
+  const textarea = document.createElement('textarea');
+  textarea.className = 'alias-patterns';
+  textarea.rows = 4;
+  textarea.spellcheck = false;
+  textarea.placeholder = 'user+*@example.com\n*@me.example.com';
+  textarea.value = (accountSettings.aliasPatterns || []).join('\n');
+  textarea.addEventListener('change', async () => {
+    const newSettings = getAccountSettings(identityId);
+    newSettings.aliasPatterns = parseAliasPatterns(textarea.value);
+    textarea.value = newSettings.aliasPatterns.join('\n');
+    await saveAccountSettings(identityId, newSettings);
+  });
+  return textarea;
 }
 
 /**

@@ -4,6 +4,7 @@ Automatically manage email aliases with support for multiple alias methods:
 - **Plus-addressing**: `user+alias@domain.com` (Gmail, Posteo, etc.)
 - **Own domain**: `alias@yourdomain.com` (domains you own)
 - **Catchall**: `anything@yourdomain.com` (domains with catchall forwarding)
+- **Address patterns**: your own list such as `user+*@domain.com`, `*@me.domain.com` (+labels on several local parts, catch-all subdomains, shared domains)
 
 > **Initial setup required:** after installation the extension is inactive until you enable **Reply as Alias** for at least one account in the extension settings and select its alias method — all features are opt-in per account. The settings page opens automatically after installation; see [Configuration](#configuration).
 
@@ -109,6 +110,7 @@ The script runs the unit tests, applies git-based versioning (clean `main` → m
      - **Plus-addressing**: `user+alias@domain.com` (Gmail, Posteo, etc.)
      - **Own domain**: `alias@yourdomain.com` (for domains you own)
      - **Own domain with catchall**: `anything@yourdomain.com` (catchall enabled)
+     - **Address patterns**: one pattern per line in the box that appears, `*` = any text (see below)
    - **Enable Alias Suggestion**: Check to get alias prompts when composing
 3. Hover the column headers for a short explanation of each setting
 
@@ -130,7 +132,7 @@ The script runs the unit tests, applies git-based versioning (clean `main` → m
 
 ### Alias Methods
 
-The extension supports three alias methods (configured per-account):
+The extension supports four alias methods (configured per-account):
 
 #### 1. Plus-Addressing (Default)
 - **Pattern**: `user+alias@domain.com`
@@ -155,6 +157,27 @@ The extension supports three alias methods (configured per-account):
   - Any email to `*@yourdomain.com` reaches your mailbox
   - Extension matches based on domain name
   - No need to pre-create aliases
+
+#### 4. Address Patterns
+- **Pattern**: whatever you list, one per line; `*` matches any text except `@`
+- **Use when**: your aliases don't fit the methods above — a catch-all
+  *subdomain* per mailbox, several local parts on one account, a delimiter other
+  than `+`, or a
+  domain shared with other people (where own domain/catchall would also match
+  their addresses)
+- **Example**:
+  ```
+  me+*@example.nl
+  partner@example.nl
+  partner+*@example.nl
+  *@me.example.nl
+  *@partner.example.nl
+  ```
+- **How it works**:
+  - Only addresses matching one of your patterns are used — nothing else on the domain
+  - If a matched address already has its own Thunderbird identity, that identity is selected
+  - Alias Suggestion builds new aliases from the first pattern with a single `*`
+    (`me+*@example.nl` + `shop` → `me+shop@example.nl`)
 
 ### Smart Detection
 
@@ -212,6 +235,9 @@ The extension supports three alias methods (configured per-account):
 - Check that the alias method is set correctly (own domain or catchall)
 - Ensure only ONE identity per domain is using own-domain methods
 - If you see a "Domain conflict" warning, disable Reply as Alias for other identities with the same domain
+
+**For address patterns:**
+- Make sure the address the mail arrived at matches one of the patterns (`*` never matches `@` or empty text — list the bare address separately, as in the example above)
 
 **General:**
 - Reload the extension or restart Thunderbird

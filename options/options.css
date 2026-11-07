@@ -153,6 +153,27 @@ h2 {
   color: var(--fg-muted);
 }
 
+/* Pattern editor: only while the "Address patterns" method is selected */
+.alias-patterns {
+  display: none;
+  width: 100%;
+  min-width: 16rem;
+  margin-top: 0.3rem;
+  padding: 0.3rem 0.4rem;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.method-option:has(> input[type="radio"]:checked) .alias-patterns {
+  display: block;
+}
+
 .domain-conflict-warning {
   display: inline-block;
   margin-top: 0.5rem;

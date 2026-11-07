@@ -210,6 +210,7 @@ function getAccountSettings(identityId) {
   return {
     replyAsAliasEnabled: false,
     aliasMethod: 'plus',
+    aliasPatterns: [],
     suggestAliasEnabled: false,
     suggestAliasDontAskList: []
   };
@@ -254,61 +255,43 @@ async function loadBaseEmails() {
 }
 
 // extractEmail / extractDomain / extractBase / matchesBase / aliasNamePart /
-// collectRecipientCandidates / displayAddress are defined in
+// collectRecipientCandidates / displayAddress / findAliasMatch /
+// suggestionTemplate are defined in
 // shared/alias-utils.js, loaded before this file (manifest.json
 // background.scripts) — kept separate so they can be unit-tested under Node.
 
 /**
- * REPLY AS ALIAS: Find matching alias in recipients (method-aware)
- * Returns { alias: recipient, identity: identity, method: method } or null
+ * REPLY AS ALIAS: Find matching alias in recipients (method-aware).
+ * Candidates are tried in order (delivery headers first), each against every
+ * enabled account — see findAliasMatch in shared/alias-utils.js.
+ * Returns { alias, email, identity, method } or null
  */
-async function findMatchingAlias(recipients) {
+function findMatchingAlias(recipients) {
   if (!recipients || !Array.isArray(recipients)) {
     return null;
   }
 
   debugLog(`Send As Alias: Searching for alias match in ${recipients.length} recipient(s)`);
 
-  for (const identity of identities) {
-    const accountSettings = getAccountSettings(identity.id);
-
-    // Skip if Reply as Alias is disabled for this account
-    if (!accountSettings.replyAsAliasEnabled) {
-      continue;
-    }
-
-    for (const recipient of recipients) {
-      const email = extractEmail(recipient);
-      if (!email) continue;
-
-      // Check if this email matches the identity's base using configured method
-      if (matchesBase(email, identity, accountSettings.aliasMethod)) {
-        // Keep the recipient's display name; fall back to the identity's name
-        const formattedAlias = displayAddress(recipient, identity.name);
-
-        debugLog(`Send As Alias: ✓ Match found: ${email} (method: ${accountSettings.aliasMethod}, identity: ${identity.email})`);
-
-        return {
-          alias: formattedAlias,
-          identity: identity,
-          method: accountSettings.aliasMethod
-        };
-      }
-    }
+  const match = findAliasMatch(recipients, identities, getAccountSettings);
+  if (match) {
+    debugLog(`Send As Alias: ✓ Match found: ${match.email} (method: ${match.method}, identity: ${match.identity.email})`);
   }
-
-  return null;
+  return match;
 }
 
 /**
  * ALIAS SUGGESTION: Show alias suggestion prompt (method-aware)
  * Opens a popup window and waits for user response
  */
-async function showAliasPrompt(fromEmail, toEmail, method, domain) {
-  // Build URL with method and domain parameters
+async function showAliasPrompt(fromEmail, toEmail, method, domain, template) {
+  // Build URL with method, domain and (patterns method) template parameters
   let url = `popup/alias-prompt.html?from=${encodeURIComponent(fromEmail)}&to=${encodeURIComponent(toEmail || '')}&method=${encodeURIComponent(method)}`;
   if (domain) {
     url += `&domain=${encodeURIComponent(domain)}`;
+  }
+  if (template) {
+    url += `&template=${encodeURIComponent(template)}`;
   }
   return showPromptWindow(url, 400);
 }
@@ -399,7 +382,7 @@ async function showCreateIdentityPrompt(options) {
 /**
  * IDENTITY CREATION: Maybe create identity for new alias
  */
-async function maybeCreateIdentity(aliasEmail, baseEmail, method, composeTabId) {
+async function maybeCreateIdentity(aliasEmail, baseEmail, method, composeTabId, patterns) {
   debugLog(`Send As Alias: maybeCreateIdentity called with aliasEmail: ${aliasEmail}, baseEmail: ${baseEmail}, method: ${method}, composeTabId: ${composeTabId}`);
 
   try {
@@ -431,7 +414,7 @@ async function maybeCreateIdentity(aliasEmail, baseEmail, method, composeTabId) 
 
     // Method-aware alias name: "shopping" from user+shopping@… (plus),
     // "sales" from sales@… (own-domain/catchall)
-    const aliasName = aliasNamePart(aliasEmail, method);
+    const aliasName = aliasNamePart(aliasEmail, method, patterns);
     const suggestedName = aliasName ? `${baseIdentity.name} (${aliasName})` : baseIdentity.name;
 
     debugLog(`Send As Alias: Prompting to create identity: ${suggestedName}`);
@@ -505,14 +488,13 @@ async function handleCompose(tab, composeDetails) {
         );
 
         // Try to find matching alias (method-aware)
-        const match = await findMatchingAlias(recipients);
+        const match = findMatchingAlias(recipients);
 
         if (match) {
           debugLog(`Send As Alias: Reply as Alias - Setting From to "${match.alias}" (method: ${match.method})`);
 
           try {
-            // match.alias might be "Name" <email@domain.com>
-            const aliasEmail = extractEmail(match.alias);
+            const aliasEmail = match.email;
             const existingIdentity = await applyAliasToCompose(tab.id, aliasEmail, match.alias);
             aliasWasSet = true;
             if (!existingIdentity) {
@@ -533,13 +515,16 @@ async function handleCompose(tab, composeDetails) {
     // ALIAS SUGGESTION: Prompt for alias if not already set
     if (!aliasWasSet) {
       // Find the identity for this fromEmail
-      const currentIdentity = identities.find(id => id.email === fromEmail);
+      const currentIdentity = identities.find(id => id.email.toLowerCase() === fromEmail);
 
       if (currentIdentity) {
         const accountSettings = getAccountSettings(currentIdentity.id);
 
         if (accountSettings.suggestAliasEnabled) {
           const method = accountSettings.aliasMethod;
+          // patterns method: new aliases are built from the first pattern
+          // with a single "*"; without one there is nothing to suggest
+          const template = method === 'patterns' ? suggestionTemplate(accountSettings.aliasPatterns) : null;
           let shouldPrompt = false;
 
           // Check if from is a base address based on method
@@ -548,7 +533,9 @@ async function handleCompose(tab, composeDetails) {
             shouldPrompt = !fromEmail.includes('+');
           } else if (method === 'own-domain' || method === 'catchall') {
             // For own-domain: check if from matches the configured identity
-            shouldPrompt = (fromEmail === currentIdentity.email);
+            shouldPrompt = (fromEmail === currentIdentity.email.toLowerCase());
+          } else if (method === 'patterns') {
+            shouldPrompt = !!template && (fromEmail === currentIdentity.email.toLowerCase());
           }
 
           if (shouldPrompt) {
@@ -564,7 +551,7 @@ async function handleCompose(tab, composeDetails) {
 
               try {
                 const domain = extractDomain(fromEmail);
-                const result = await showAliasPrompt(fromEmail, toEmail, method, domain);
+                const result = await showAliasPrompt(fromEmail, toEmail, method, domain, template);
 
                 if (result.useAlias && result.aliasName) {
                   let aliasEmail;
@@ -572,6 +559,8 @@ async function handleCompose(tab, composeDetails) {
                     aliasEmail = `${fromEmail.split('@')[0]}+${result.aliasName}@${domain}`;
                   } else if (method === 'own-domain' || method === 'catchall') {
                     aliasEmail = `${result.aliasName}@${domain}`;
+                  } else if (method === 'patterns') {
+                    aliasEmail = template.replace('*', result.aliasName.toLowerCase());
                   }
 
                   // Preserve the name part from the current identity
@@ -587,7 +576,7 @@ async function handleCompose(tab, composeDetails) {
                     usedIdentity = currentIdentity;
                     usedMethod = method;
                   }
-                } else if (result.dontAskAgain) {
+                } else if (result.dontAskAgain && toEmail) {
                   // Save to dontAskAgain list for this account
                   accountSettings.suggestAliasDontAskList = accountSettings.suggestAliasDontAskList || [];
                   accountSettings.suggestAliasDontAskList.push(toEmail);
@@ -613,7 +602,8 @@ async function handleCompose(tab, composeDetails) {
         // The base is the identity the alias was derived from — no string
         // parsing needed (parsing broke for own-domain/catchall aliases,
         // where the alias contains no "+" and its local part isn't the base)
-        await maybeCreateIdentity(usedAlias, usedIdentity.email, usedMethod, tab.id);
+        await maybeCreateIdentity(usedAlias, usedIdentity.email, usedMethod, tab.id,
+          getAccountSettings(usedIdentity.id).aliasPatterns);
       } catch (error) {
         errorLog('Send As Alias: Error in Identity Creation:', error);
       }
@@ -750,11 +740,18 @@ messenger.identities.onDeleted.addListener((_id) => {
   loadBaseEmails();
 });
 
-// Open the settings page on first install: every feature is per-account
-// opt-in, so the extension does nothing until configured (issue #1)
-messenger.runtime.onInstalled.addListener(({ reason }) => {
-  if (reason === 'install') {
-    messenger.runtime.openOptionsPage();
+// Open the settings page on first install, and on updates while nothing is
+// configured yet: every feature is per-account opt-in, so the extension does
+// nothing until configured (issue #1). See shouldOpenSetup for why updates count.
+messenger.runtime.onInstalled.addListener(async ({ reason }) => {
+  try {
+    const { accountSettings } = await messenger.storage.local.get('accountSettings');
+    if (shouldOpenSetup(reason, accountSettings)) {
+      infoLog(`Send As Alias: Opening settings (onInstalled reason: ${reason})`);
+      await messenger.runtime.openOptionsPage();
+    }
+  } catch (error) {
+    errorLog('Send As Alias: Could not open settings after install:', error);
   }
 });
 

@@ -7,6 +7,7 @@
      id2 me@mydomain.com   — Reply as Alias OFF  (collapsed row)
      id3 sales@corp.example — Reply as Alias ON, own-domain  ┐ same domain →
      id4 team@corp.example  — Reply as Alias ON, own-domain  ┘ domain conflict
+     id5 pat@example.com    — Reply as Alias ON, patterns (2 patterns)
 */
 (() => {
   'use strict';
@@ -15,14 +16,16 @@
     id1: { id: 'id1', email: 'user@example.com', name: 'User One' },
     id2: { id: 'id2', email: 'me@mydomain.com', name: 'Me Two' },
     id3: { id: 'id3', email: 'sales@corp.example', name: 'Corp A' },
-    id4: { id: 'id4', email: 'team@corp.example', name: 'Corp B' }
+    id4: { id: 'id4', email: 'team@corp.example', name: 'Corp B' },
+    id5: { id: 'id5', email: 'pat@example.com', name: 'Pat Five' }
   };
 
   const accountSettings = {
     id1: { replyAsAliasEnabled: true, aliasMethod: 'plus', suggestAliasEnabled: true, suggestAliasDontAskList: [] },
     id2: { replyAsAliasEnabled: false, aliasMethod: 'plus', suggestAliasEnabled: false, suggestAliasDontAskList: [] },
     id3: { replyAsAliasEnabled: true, aliasMethod: 'own-domain', suggestAliasEnabled: false, suggestAliasDontAskList: [] },
-    id4: { replyAsAliasEnabled: true, aliasMethod: 'own-domain', suggestAliasEnabled: false, suggestAliasDontAskList: [] }
+    id4: { replyAsAliasEnabled: true, aliasMethod: 'own-domain', suggestAliasEnabled: false, suggestAliasDontAskList: [] },
+    id5: { replyAsAliasEnabled: true, aliasMethod: 'patterns', aliasPatterns: ['pat+*@example.com', '*@pat.example.com'], suggestAliasEnabled: false, suggestAliasDontAskList: [] }
   };
 
   // Drivers assert against this: storage writes and runtime messages land here
@@ -37,7 +40,7 @@
       }
     },
     runtime: { getManifest: () => ({ version: 'ui-verify' }) },
-    accounts: { list: async () => [{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }, { id: 'a4' }] },
+    accounts: { list: async () => [{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }, { id: 'a4' }, { id: 'a5' }] },
     identities: {
       getDefault: async (accountId) => identityById['id' + accountId.slice(1)]
     }
